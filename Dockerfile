@@ -3,11 +3,11 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Копирование файлов зависимостей
-COPY package.json package-lock.json ./
+# Копирование файла зависимостей
+COPY package.json ./
 
 # Установка зависимостей
-RUN npm ci
+RUN npm install
 
 # Копирование исходного кода
 COPY . .
@@ -21,8 +21,17 @@ FROM nginx:alpine AS production
 # Копирование собранных файлов из этапа сборки
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Копирование nginx конфигурации
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Копирование nginx конфигурации или создание дефолтной
+COPY nginx.conf /etc/nginx/conf.d/default.conf || { \
+  echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        index index.html; \
+        try_files $uri $uri/ /index.html; \
+    } \
+  }' > /etc/nginx/conf.d/default.conf; \
+}
 
 # Открываем порт
 EXPOSE 80
