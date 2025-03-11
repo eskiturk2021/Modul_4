@@ -1,0 +1,51 @@
+{
+  "name": "customer-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "*",
+    "@radix-ui/react-tabs": "*",
+    "axios": "*",
+    "class-variance-authority": "*",
+    "clsx": "*",
+    "date-fns": "*",
+    "jwt-decode": "*",
+    "lucide-react": "*",
+    "react": "*",
+    "react-dom": "*",
+    "react-router-dom": "*",
+    "recharts": "*",
+    "socket.io-client": "*",
+    "tailwind-merge": "*",
+    "tailwindcss-animate": "*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@typescript-eslint/eslint-plugin": "*",
+    "@typescript-eslint/parser": "*",
+    "@vitejs/plugin-react": "*",
+    "autoprefixer": "*",
+    "eslint": "*",
+    "eslint-config-prettier": "*",
+    "eslint-plugin-react-hooks": "*",
+    "eslint-plugin-react-refresh": "*",
+    "postcss": "*",
+    "prettier": "*",
+    "tailwindcss": "*",
+    "typescript": "*",
+    "vite": "*",
+    "vitest": "*"
+  }
+}
