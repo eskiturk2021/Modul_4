@@ -89,3 +89,114 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
         console.error('Maximum reconnection attempts reached');
       }
     });
+
+    // Add message handler
+    socketInstance.on('message', (message) => {
+      setLastMessage(message);
+      console.log('Received message:', message);
+    });
+
+    // Add specific event handlers
+    socketInstance.on('appointment_created', (data) => {
+      console.log('New appointment created:', data);
+      setLastMessage({ type: 'appointment_created', data });
+    });
+
+    socketInstance.on('appointment_updated', (data) => {
+      console.log('Appointment updated:', data);
+      setLastMessage({ type: 'appointment_updated', data });
+    });
+
+    socketInstance.on('customer_created', (data) => {
+      console.log('New customer created:', data);
+      setLastMessage({ type: 'customer_created', data });
+    });
+
+    socketInstance.on('document_uploaded', (data) => {
+      console.log('Document uploaded:', data);
+      setLastMessage({ type: 'document_uploaded', data });
+    });
+
+    // Handle connection errors
+    socketInstance.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
+
+      // Check if the error might be due to an invalid token
+      if (error.message === 'jwt expired' || error.message === 'invalid token') {
+        console.log('Token issue detected, attempting to refresh...');
+        refreshToken().then(success => {
+          if (success) {
+            console.log('Token refreshed, reconnecting socket...');
+            socketInstance.disconnect();
+            connectWebSocket();
+          }
+        });
+      }
+    });
+
+    // Set the socket in state
+    setSocket(socketInstance);
+
+    // Cleanup function
+    return () => {
+      cleanupSocket();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [token, isAuthenticated, cleanupSocket, refreshToken]);
+
+  // Establish connection when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      connectWebSocket();
+    }
+
+    return () => {
+      cleanupSocket();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [isAuthenticated, connectWebSocket, cleanupSocket]);
+
+  // Function to send messages
+  const sendMessage = (event: string, data: any) => {
+    if (socket && isConnected) {
+      socket.emit(event, data);
+    } else {
+      console.warn('Cannot send message: socket is not connected');
+    }
+  };
+
+  // Function to force reconnection
+  const reconnect = () => {
+    if (socket) {
+      socket.disconnect();
+    }
+    reconnectAttempts.current = 0;
+    connectWebSocket();
+  };
+
+  return (
+    <WebSocketContext.Provider
+      value={{
+        socket,
+        isConnected,
+        lastMessage,
+        sendMessage,
+        reconnect,
+      }}
+    >
+      {children}
+    </WebSocketContext.Provider>
+  );
+};
+
+export const useWebSocket = () => {
+  const context = useContext(WebSocketContext);
+  if (context === undefined) {
+    throw new Error('useWebSocket must be used within a WebSocketProvider');
+  }
+  return context;
+};

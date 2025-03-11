@@ -40,3 +40,7 @@ export function ServicesPieChart({ data, title = "Services Distribution" }: Serv
             <Legend />
           </PieChart>
         </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
