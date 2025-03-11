@@ -7,13 +7,13 @@ WORKDIR /app
 COPY package.json ./
 
 # Установка зависимостей
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Копирование исходного кода
 COPY . .
 
 # Сборка приложения
-RUN npm run build
+RUN npm run build || (cat /app/tsconfig.json && ls -la && exit 1)
 
 # Этап production
 FROM nginx:alpine AS production
