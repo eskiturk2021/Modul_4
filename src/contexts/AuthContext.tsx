@@ -1,7 +1,7 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
-import jwtDecode from 'jwt-decode';
+import tokenService from '@/services/tokenService';
 
 type User = {
   id: string;
@@ -17,13 +17,14 @@ type AuthContextType = {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  refreshToken: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(tokenService.getToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -34,15 +35,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Set default headers for all requests
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-          // You could also verify the token on the server
-          // const response = await axios.get('/api/auth/validate');
-
-          // For now, we'll just decode the token
-          const decoded = jwtDecode(token) as User;
-          setUser(decoded);
+          // Check if token is still valid
+          if (!tokenService.isTokenValid()) {
+            console.warn('Token has expired, trying to refresh...');
+            const refreshed = await refreshToken();
+            if (!refreshed) {
+              throw new Error('Token refresh failed');
+            }
+          } else {
+            // Token is valid, get user info from it
+            const decoded = tokenService.getDecodedToken();
+            if (decoded) {
+              setUser({
+                id: decoded.id,
+                username: decoded.username,
+                email: decoded.email,
+                role: decoded.role
+              });
+            }
+          }
         } catch (error) {
           console.error('Invalid token', error);
-          localStorage.removeItem('token');
+          tokenService.removeToken();
           setToken(null);
           setUser(null);
         }
@@ -51,6 +65,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     validateToken();
+
+    // Set up a timer to check token expiration periodically
+    const tokenCheckInterval = setInterval(() => {
+      if (tokenService.shouldRefreshToken()) {
+        refreshToken().catch(error => {
+          console.error('Token refresh failed:', error);
+        });
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(tokenCheckInterval);
   }, [token]);
 
   const login = async (email: string, password: string) => {
@@ -60,12 +85,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await axios.post('/api/auth/login', { email, password });
       const { token: newToken } = response.data;
 
-      localStorage.setItem('token', newToken);
+      tokenService.setToken(newToken);
       setToken(newToken);
 
       // Decode the token to get user information
-      const decoded = jwtDecode(newToken) as User;
-      setUser(decoded);
+      const decoded = tokenService.getDecodedToken();
+      if (decoded) {
+        setUser({
+          id: decoded.id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role
+        });
+      }
     } catch (error) {
       console.error('Login failed', error);
       throw error;
@@ -74,8 +106,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      // Call API to refresh token
+      const response = await axios.post('/api/auth/refresh', {}, {
+        headers: tokenService.getAuthHeader()
+      });
+
+      const { token: newToken } = response.data;
+      tokenService.setToken(newToken);
+      setToken(newToken);
+
+      // Update axios headers
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+      // Update user from new token
+      const decoded = tokenService.getDecodedToken();
+      if (decoded) {
+        setUser({
+          id: decoded.id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Token refresh failed', error);
+      logout();
+      return false;
+    }
+  };
+
   const logout = () => {
-    localStorage.removeItem('token');
+    tokenService.removeToken();
     setToken(null);
     setUser(null);
     // Reset axios headers
@@ -89,6 +154,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     logout,
     isAuthenticated: !!user,
+    refreshToken
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
