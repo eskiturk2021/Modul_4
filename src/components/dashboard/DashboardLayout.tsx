@@ -1,8 +1,7 @@
 // src/components/dashboard/DashboardLayout.tsx
-import React, { useState, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/Button';
 import {
   LayoutDashboard,
   Users,

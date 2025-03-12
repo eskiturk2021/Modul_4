@@ -1,5 +1,5 @@
 // src/pages/Appointments.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -170,7 +170,7 @@ export default function Appointments() {
         </div>
 
         <div className="grid grid-cols-7 auto-rows-fr border-b h-96 overflow-y-auto">
-          {days.map((day, i) => {
+          {days.map((day, _) => {
             const dayAppointments = getAppointmentsForDay(day);
             const isCurrentDay = isToday(day);
 

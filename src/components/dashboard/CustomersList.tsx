@@ -1,5 +1,5 @@
 // src/components/dashboard/CustomersList.tsx
-import React from 'react';
+
 import { getInitials } from '@/lib/utils';
 
 interface Customer {

@@ -1,5 +1,5 @@
 // src/components/dashboard/AppointmentList.tsx
-import React from 'react';
+
 import { formatDate } from '@/lib/utils';
 
 interface Appointment {

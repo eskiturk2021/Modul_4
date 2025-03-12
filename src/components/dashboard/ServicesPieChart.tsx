@@ -1,5 +1,5 @@
 // src/components/dashboard/ServicesPieChart.tsx
-import React from 'react';
+
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 interface ServiceData {
@@ -32,7 +32,7 @@ export function ServicesPieChart({ data, title = "Services Distribution" }: Serv
               dataKey="value"
               label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
             >
-              {data.map((entry, index) => (
+              {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>

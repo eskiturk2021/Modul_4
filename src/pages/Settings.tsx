@@ -1,5 +1,5 @@
 // src/pages/Settings.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -15,9 +15,6 @@ interface Service {
   category: string;
 }
 
-interface PromptSettings {
-  content: string;
-}
 
 export default function Settings() {
   // Services state
