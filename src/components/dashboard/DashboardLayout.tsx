@@ -1,6 +1,6 @@
-// src/components/dashboard/DashboardLayout.tsx
+/// src/components/dashboard/DashboardLayout.tsx
 import { useState, ReactNode } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -300,7 +300,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <main className="flex-1 relative overflow-y-auto focus:outline-none">
           <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">{children}</div>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+              {children || <Outlet />}
+            </div>
           </div>
         </main>
       </div>

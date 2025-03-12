@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { RefreshCw, Save, Plus, Trash, Edit } from 'lucide-react';
 
@@ -127,7 +126,7 @@ export default function Settings() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <div className="pb-5 border-b border-gray-200">
         <h1 className="text-2xl font-bold leading-tight text-gray-900">Settings</h1>
       </div>
@@ -500,6 +499,6 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

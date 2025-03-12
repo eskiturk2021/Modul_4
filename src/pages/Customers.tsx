@@ -1,10 +1,10 @@
 // src/pages/Customers.tsx
+
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Search, Plus, RefreshCw, Filter, Download } from 'lucide-react';
 
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { getInitials, formatDate } from '@/lib/utils';
 
@@ -93,7 +93,7 @@ export default function Customers() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <div className="pb-5 border-b border-gray-200 sm:flex sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold leading-tight text-gray-900">Customers</h1>
         <div className="mt-3 sm:mt-0 sm:ml-4">
@@ -305,6 +305,6 @@ export default function Customers() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </>
   );
 }

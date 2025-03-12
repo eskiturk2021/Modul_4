@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
 
@@ -288,7 +287,7 @@ export default function Appointments() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <div className="pb-5 border-b border-gray-200 sm:flex sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold leading-tight text-gray-900">Appointments</h1>
         <div className="mt-3 sm:mt-0 sm:ml-4">
@@ -349,6 +348,6 @@ export default function Appointments() {
           view === 'list' ? renderListView() : renderCalendarView()
         )}
       </div>
-    </DashboardLayout>
+    </>
   );
 }

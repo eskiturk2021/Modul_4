@@ -1,7 +1,7 @@
 // src/App.tsx
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 
@@ -12,9 +12,10 @@ import Customers from './pages/Customers';
 import Appointments from './pages/Appointments';
 import Documents from './pages/Documents';
 import Settings from './pages/Settings';
+import { DashboardLayout } from './components/dashboard/DashboardLayout';
 
-// Protected Route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+// Protected Layout component
+const ProtectedLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -25,7 +26,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" />;
   }
 
-  return <>{children}</>;
+  return (
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
+  );
 };
 
 function AppRoutes() {
@@ -33,56 +38,20 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
 
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+      {/* Группа защищенных маршрутов внутри общего Layout */}
+      <Route element={<ProtectedLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/appointments" element={<Appointments />} />
+        <Route path="/documents" element={<Documents />} />
+        <Route path="/settings" element={<Settings />} />
 
-      <Route
-        path="/customers"
-        element={
-          <ProtectedRoute>
-            <Customers />
-          </ProtectedRoute>
-        }
-      />
+        {/* Редирект с корня на дашборд */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      <Route
-        path="/appointments"
-        element={
-          <ProtectedRoute>
-            <Appointments />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/documents"
-        element={
-          <ProtectedRoute>
-            <Documents />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Redirect root to dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-      {/* Catch all route - redirect to dashboard */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* Catch all route - редирект на дашборд */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
     </Routes>
   );
 }

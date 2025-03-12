@@ -7,7 +7,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { AppointmentList } from '@/components/dashboard/AppointmentList';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
@@ -117,17 +116,15 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-screen">
-          <RefreshCw className="h-8 w-8 text-gray-400 animate-spin" />
-          <span className="ml-2 text-gray-600">Loading dashboard data...</span>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-screen">
+        <RefreshCw className="h-8 w-8 text-gray-400 animate-spin" />
+        <span className="ml-2 text-gray-600">Loading dashboard data...</span>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="pb-5 border-b border-gray-200">
         <h1 className="text-2xl font-bold leading-tight text-gray-900">Dashboard</h1>
       </div>
@@ -168,6 +165,6 @@ export default function Dashboard() {
         <AppointmentList appointments={appointments} />
         <ActivityFeed activities={activities} />
       </div>
-    </DashboardLayout>
+    </>
   );
 }
