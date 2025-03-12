@@ -1,5 +1,5 @@
 // src/components/dashboard/ActivityFeed.tsx
-import React from 'react';
+
 import { formatDate } from '@/lib/utils';
 import { User, Clock, ShoppingBag, FileText, Settings, MoreHorizontal } from 'lucide-react';
 

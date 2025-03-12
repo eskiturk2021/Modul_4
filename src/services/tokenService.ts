@@ -1,5 +1,5 @@
 // src/services/tokenService.ts
-import jwtDecode, { JwtPayload } from 'jwt-decode';
+import { jwtDecode, JwtPayload } from 'jwt-decode';
 
 interface CustomJwtPayload extends JwtPayload {
   id: string;

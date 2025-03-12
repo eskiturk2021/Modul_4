@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Users,
   Calendar,
+  TrendingUp,
   UserPlus,
   RefreshCw
 } from 'lucide-react';
@@ -14,6 +14,43 @@ import { AppointmentList } from '@/components/dashboard/AppointmentList';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { ServicesPieChart } from '@/components/dashboard/ServicesPieChart';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+
+interface RevenueData {
+  month: string;
+  revenue: number;
+  expenses: number;
+  profit: number;
+}
+
+interface ServiceData {
+  name: string;
+  value: number;
+}
+
+interface Appointment {
+  id: string;
+  customer: {
+    name: string;
+    phone: string;
+  };
+  service: {
+    name: string;
+  };
+  appointment_date: string;
+  appointment_time: string;
+  status: string;
+}
+
+interface Activity {
+  id: string;
+  message: string;
+  type: string;
+  created_at: string;
+  customer?: {
+    id: string;
+    name: string;
+  };
+}
 
 export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
@@ -28,10 +65,10 @@ export default function Dashboard() {
     scheduledAppointmentsTrend: { direction: 'same' as 'up' | 'down' | 'same', value: 0 },
   });
 
-  const [appointments, setAppointments] = useState([]);
-  const [revenueData, setRevenueData] = useState([]);
-  const [servicesData, setServicesData] = useState([]);
-  const [activities, setActivities] = useState([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
+  const [servicesData, setServicesData] = useState<ServiceData[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -46,7 +83,7 @@ export default function Dashboard() {
         setAppointments(appointmentsResponse.data);
 
         // Mock revenue data - replace with actual API call
-        const mockRevenueData = [
+        const mockRevenueData: RevenueData[] = [
           { month: 'Jan', revenue: 12000, expenses: 8000, profit: 4000 },
           { month: 'Feb', revenue: 14000, expenses: 9000, profit: 5000 },
           { month: 'Mar', revenue: 16000, expenses: 10000, profit: 6000 },
@@ -57,7 +94,7 @@ export default function Dashboard() {
         setRevenueData(mockRevenueData);
 
         // Mock services data - replace with actual API call
-        const mockServicesData = [
+        const mockServicesData: ServiceData[] = [
           { name: 'Tire Change', value: 35 },
           { name: 'Oil Change', value: 30 },
           { name: 'Brake Service', value: 15 },
