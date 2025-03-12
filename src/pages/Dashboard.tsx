@@ -3,7 +3,6 @@ import axios from 'axios';
 import {
   Users,
   Calendar,
-  TrendingUp,
   UserPlus,
   RefreshCw
 } from 'lucide-react';
