@@ -3,12 +3,16 @@ import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import tokenService from './tokenService';
 import { useEffect } from 'react';
 
+// Get API key from environment variables
+const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
+
 // Create a custom axios instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
+    'X-API-Key': API_KEY,
   },
 });
 
@@ -20,6 +24,11 @@ api.interceptors.request.use(
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Always ensure X-API-Key is included in every request
+    config.headers = config.headers || {};
+    config.headers['X-API-Key'] = API_KEY;
+
     return config;
   },
   (error) => {
@@ -44,8 +53,12 @@ api.interceptors.response.use(
 
       try {
         // Attempt to refresh the token
+        const refreshHeaders = {
+          ...tokenService.getAuthHeader(),
+          'X-API-Key': API_KEY
+        };
         const response = await axios.post('/api/auth/refresh', {}, {
-          headers: tokenService.getAuthHeader()
+          headers: refreshHeaders
         });
 
         const { token } = response.data;
@@ -56,6 +69,7 @@ api.interceptors.response.use(
         // Update authorization header for the original request
         originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${token}`;
+        originalRequest.headers['X-API-Key'] = API_KEY;
 
         // Retry the original request
         return api(originalRequest);
@@ -143,6 +157,7 @@ const apiService = {
         headers: {
           ...config?.headers,
           'Content-Type': 'multipart/form-data',
+          'X-API-Key': API_KEY,
         },
       };
 

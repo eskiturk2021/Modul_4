@@ -50,11 +50,14 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     cleanupSocket();
 
     const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8000';
+    // Get API key from environment variables
+    const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
 
     // Create a new socket instance
     const socketInstance = io(wsUrl, {
       auth: {
-        token
+        token,
+        apiKey: API_KEY
       },
       reconnectionAttempts: 0,  // We'll handle reconnection manually
       autoConnect: true,

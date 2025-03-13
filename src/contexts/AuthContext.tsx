@@ -3,6 +3,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import axios from 'axios';
 import tokenService from '@/services/tokenService';
 
+// Get API key from environment variables
+const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
+
 type User = {
   id: string;
   username: string;
@@ -81,8 +84,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      // Get API key from environment variables
       // Replace with your actual API endpoint
-      const response = await axios.post('/api/auth/login', { email, password });
+      const response = await axios.post('/api/auth/login', { email, password }, {
+        headers: {
+          'X-API-Key': API_KEY
+        }
+      });
       const { token: newToken } = response.data;
 
       tokenService.setToken(newToken);
@@ -110,7 +118,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // Call API to refresh token
       const response = await axios.post('/api/auth/refresh', {}, {
-        headers: tokenService.getAuthHeader()
+        headers: {
+          ...tokenService.getAuthHeader(),
+          'X-API-Key': API_KEY
+        }
       });
 
       const { token: newToken } = response.data;
