@@ -49,7 +49,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     // Cleanup any existing socket
     cleanupSocket();
 
-    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'https://modul3-production.up.railway.app:8080';
+    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'https://modul3-production.up.railway.app';
     // Get API key from environment variables
     const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
 

@@ -6,7 +6,7 @@ import './index.css';
 import axios from 'axios';
 
 // Set default axios base URL for API requests
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app:8080';
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app';
 
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
