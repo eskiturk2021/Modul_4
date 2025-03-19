@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import tokenService from '@/services/tokenService';
+import apiService from '@/services/apiService';
 
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
@@ -119,15 +120,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Получаем текущий токен
       const currentToken = tokenService.getToken();
 
-      // Call API to refresh token - отправляем токен в теле запроса
-      const response = await axios.post('/api/auth/refresh',
-        { token: currentToken }, // Передаем токен в теле запроса
-        {
-          headers: {
-            'X-API-Key': API_KEY
-          }
-        }
-      );
+      // Call API to refresh token using apiService instead of direct axios
+      const response = await apiService.post('/api/auth/refresh', { token: currentToken });
 
       const { token: newToken } = response.data;
       tokenService.setToken(newToken);
