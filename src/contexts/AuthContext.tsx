@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import tokenService from '@/services/tokenService';
-import apiService from '@/services/apiService';  // добавил
+import apiService from '@/services/apiService';  // добавил ссылку
 
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
