@@ -116,38 +116,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const refreshToken = async (): Promise<boolean> => {
-    try {
-      // Получаем текущий токен
-      const currentToken = tokenService.getToken();
+      try {
+          // Получаем текущий токен
+          const currentToken = tokenService.getToken();
 
-      // Call API to refresh token using apiService instead of direct axios
-      const response = await apiService.post('/api/auth/refresh', { token: currentToken });
+          if (!currentToken) {
+              console.error('Нет токена для обновления');
+              return false;
+          }
 
-      const { token: newToken } = response.data;
-      tokenService.setToken(newToken);
-      setToken(newToken);
+          // Call API to refresh token using apiService
+          const response = await apiService.post('/api/auth/refresh', { token: currentToken });
 
-      // Update axios headers
-      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+          const { token: newToken } = response.data;
+          tokenService.setToken(newToken);
+          setToken(newToken);
 
-      // Update user from new token
-      const decoded = tokenService.getDecodedToken();
-      if (decoded) {
-        setUser({
-          id: decoded.id,
-          username: decoded.username,
-          email: decoded.email,
-          role: decoded.role
-        });
-      }
+          // Update axios headers
+          axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
-      return true;
-    } catch (error) {
-      console.error('Token refresh failed', error);
-      logout();
-      return false;
-    }
-  };
+          // Update user from new token
+          const decoded = tokenService.getDecodedToken();
+          if (decoded) {
+              setUser({
+                  id: decoded.id,
+                  username: decoded.username,
+                  email: decoded.email,
+                  role: decoded.role
+              });
+          }
+
+          return true;
+        } catch (error) {
+          console.error('Token refresh failed', error);
+          logout();
+          return false;
+        }
+      };
+
+
 
   const logout = () => {
     tokenService.removeToken();
