@@ -52,14 +52,18 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Attempt to refresh the token
-        const refreshHeaders = {
-          ...tokenService.getAuthHeader(),
-          'X-API-Key': API_KEY
-        };
-        const response = await axios.post('/api/auth/refresh', {}, {
-          headers: refreshHeaders
-        });
+        // Получаем текущий токен
+        const currentToken = tokenService.getToken();
+
+        // Attempt to refresh the token - передаем токен в теле запроса
+        const response = await axios.post('/api/auth/refresh',
+          { token: currentToken }, // Токен в теле запроса
+          {
+            headers: {
+              'X-API-Key': API_KEY
+            }
+          }
+        );
 
         const { token } = response.data;
 

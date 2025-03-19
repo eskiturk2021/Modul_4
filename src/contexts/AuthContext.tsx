@@ -116,13 +116,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const refreshToken = async (): Promise<boolean> => {
     try {
-      // Call API to refresh token
-      const response = await axios.post('/api/auth/refresh', {}, {
-        headers: {
-          ...tokenService.getAuthHeader(),
-          'X-API-Key': API_KEY
+      // Получаем текущий токен
+      const currentToken = tokenService.getToken();
+
+      // Call API to refresh token - отправляем токен в теле запроса
+      const response = await axios.post('/api/auth/refresh',
+        { token: currentToken }, // Передаем токен в теле запроса
+        {
+          headers: {
+            'X-API-Key': API_KEY
+          }
         }
-      });
+      );
 
       const { token: newToken } = response.data;
       tokenService.setToken(newToken);
