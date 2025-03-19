@@ -125,34 +125,74 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               return false;
           }
 
-          // Call API to refresh token using apiService
-          const response = await apiService.post('/api/auth/refresh', { token: currentToken });
+          console.log("Attempting to refresh token in AuthContext:", { token: currentToken });
 
-          const { token: newToken } = response.data;
-          tokenService.setToken(newToken);
-          setToken(newToken);
+          // Попытка 1: Стандартный вызов через apiService
+          try {
+              // Call API to refresh token using apiService
+              const response = await apiService.post('/api/auth/refresh', { token: currentToken });
 
-          // Update axios headers
-          axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+              const { token: newToken } = response.data;
+              tokenService.setToken(newToken);
+              setToken(newToken);
 
-          // Update user from new token
-          const decoded = tokenService.getDecodedToken();
-          if (decoded) {
-              setUser({
-                  id: decoded.id,
-                  username: decoded.username,
-                  email: decoded.email,
-                  role: decoded.role
-              });
+              // Update axios headers
+              axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+              // Update user from new token
+              const decoded = tokenService.getDecodedToken();
+              if (decoded) {
+                  setUser({
+                      id: decoded.id,
+                      username: decoded.username,
+                      email: decoded.email,
+                      role: decoded.role
+                  });
+              }
+
+              return true;
+          } catch (error) {
+              console.error('Standard token refresh failed, trying fallback method', error);
+
+              // Попытка 2: Использование токена в заголовке
+              const response = await axios.post(
+                `${import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app'}/api/auth/refresh`,
+                 {},  // Пустое тело
+                 {
+                   headers: {
+                      'Authorization': `Bearer ${currentToken}`,
+                      'X-API-Key': API_KEY,
+                      'Content-Type': 'application/json'
+                   }
+                 }
+               );
+
+               const { token: newToken } = response.data;
+               tokenService.setToken(newToken);
+               setToken(newToken);
+
+               // Update axios headers
+               axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+
+               // Update user from new token
+               const decoded = tokenService.getDecodedToken();
+               if (decoded) {
+                   setUser({
+                       id: decoded.id,
+                       username: decoded.username,
+                       email: decoded.email,
+                       role: decoded.role
+                   });
+               }
+
+               return true;
           }
-
-          return true;
-        } catch (error) {
-          console.error('Token refresh failed', error);
+      } catch (error) {
+          console.error('All token refresh methods failed', error);
           logout();
           return false;
-        }
-      };
+      }
+  };
 
 
 

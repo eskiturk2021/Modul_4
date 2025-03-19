@@ -55,11 +55,17 @@ api.interceptors.response.use(
         // Получаем текущий токен
         const currentToken = tokenService.getToken();
 
-        // Attempt to refresh the token - передаем токен в теле запроса
+        console.log("Attempting to refresh token:", { token: currentToken });
+
+        // Попытка 1: Отправка в теле запроса, как было раньше
         const response = await api.post('/api/auth/refresh',
             { token: currentToken },
             {
-              _retry: true //  Добавил , чтобы избежать бесконечного цикла
+              _retry: true, //  Добавил , чтобы избежать бесконечного цикла
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': API_KEY
+              }
             }
         );
 
@@ -76,6 +82,48 @@ api.interceptors.response.use(
         // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {
+        console.error("Token refresh error:", refreshError);
+
+        try {
+          // Попытка 2: Использование текущего токена в заголовке Authorization
+          const currentToken = tokenService.getToken();
+
+          if (currentToken) {
+            console.log("Attempting fallback token refresh method");
+
+            // Создаем новый запрос с токеном в заголовке Authorization
+            const response = await axios.post(
+              `${import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app'}/api/auth/refresh`,
+              {},  // Пустое тело
+              {
+                headers: {
+                  'Authorization': `Bearer ${currentToken}`,
+                  'X-API-Key': API_KEY,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+
+            const { token } = response.data;
+
+            // Update the token
+            tokenService.setToken(token);
+
+            // Update authorization header for the original request
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            originalRequest.headers['X-API-Key'] = API_KEY;
+
+            // Retry the original request
+            return api(originalRequest);
+          }
+        } catch (fallbackError) {
+          console.error("Fallback refresh method failed:", fallbackError);
+          // If token refresh fails, redirect to login
+          window.location.href = '/login';
+          return Promise.reject(fallbackError);
+        }
+
         // If token refresh fails, redirect to login
         window.location.href = '/login';
         return Promise.reject(refreshError);
@@ -94,7 +142,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 // Error parsing helper
 const parseError = (error: any): string => {
   if (error.response?.data?.detail) {
