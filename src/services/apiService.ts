@@ -59,7 +59,7 @@ api.interceptors.response.use(
         const response = await api.post('/api/auth/refresh',
             { token: currentToken },
             {
-              _retry: true //  чтобы избежать бесконечного цикла
+              _retry: true //  Добавил чтобы избежать бесконечного цикла
             }
         );
 
