@@ -71,13 +71,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     validateToken();
 
     // Set up a timer to check token expiration periodically
-    const tokenCheckInterval = setInterval(() => {
-      if (tokenService.shouldRefreshToken()) {
-        refreshToken().catch(error => {
-          console.error('Token refresh failed:', error);
-        });
-      }
-    }, 60000); // Check every minute
+//  const tokenCheckInterval = setInterval(() => {
+//    if (tokenService.shouldRefreshToken()) {
+//      refreshToken().catch(error => {
+//        console.error('Token refresh failed:', error);
+//      });
+//    }
+//  }, 60000); // Check every minute
 
     return () => clearInterval(tokenCheckInterval);
   }, [token]);
