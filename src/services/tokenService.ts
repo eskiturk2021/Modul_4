@@ -1,4 +1,3 @@
-// src/services/tokenService.ts
 import { jwtDecode, JwtPayload } from 'jwt-decode';
 
 interface CustomJwtPayload extends JwtPayload {
@@ -10,15 +9,36 @@ interface CustomJwtPayload extends JwtPayload {
 
 class TokenService {
   getToken(): string | null {
-    return localStorage.getItem('token');
+    try {
+      const token = localStorage.getItem('token');
+      console.log('[TokenService] Получен токен:', token);
+      return token;
+    } catch (error) {
+      console.error('[TokenService] Ошибка доступа к localStorage:', error);
+      return null;
+    }
   }
 
   setToken(token: string): void {
-    localStorage.setItem('token', token);
+    try {
+      localStorage.setItem('token', token);
+      console.log('[TokenService] Токен сохранен:', token);
+    } catch (error) {
+      console.error('[TokenService] Ошибка записи в localStorage:', error);
+    }
   }
 
   removeToken(): void {
-    localStorage.removeItem('token');
+    try {
+      localStorage.removeItem('token');
+      console.log('[TokenService] Токен удален');
+    } catch (error) {
+      console.error('[TokenService] Ошибка удаления из localStorage:', error);
+    }
+  }
+
+  hasToken(): boolean {
+    return !!this.getToken();
   }
 
   getDecodedToken(): CustomJwtPayload | null {
@@ -26,11 +46,12 @@ class TokenService {
     if (!token) return null;
 
     try {
-      return jwtDecode<CustomJwtPayload>(token);
+      const decoded = jwtDecode<CustomJwtPayload>(token);
+      console.log('[TokenService] Декодированный токен:', decoded);
+      return decoded;
     } catch (error) {
-      console.error('Invalid token format', error);
-      this.removeToken();
-      return null;
+      console.error('[TokenService] Ошибка декодирования токена:', token, error);
+      return null; // Не удаляем токен сразу, чтобы можно было разобраться
     }
   }
 
@@ -38,20 +59,21 @@ class TokenService {
     const decodedToken = this.getDecodedToken();
     if (!decodedToken) return false;
 
-    // Check if the token has expired
     const currentTime = Date.now() / 1000;
-    return decodedToken.exp ? decodedToken.exp > currentTime : false;
+    const isValid = decodedToken.exp ? decodedToken.exp > currentTime : false;
+
+    console.log('[TokenService] Токен валиден:', isValid);
+    return isValid;
   }
 
   getAuthHeader(): Record<string, string> {
     const token = this.getToken();
-    if (token) {
-      return { Authorization: `Bearer ${token}` };
-    }
-    return {};
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    console.log('[TokenService] Заголовки авторизации:', headers);
+    return headers;
   }
 
-  // Get remaining time in seconds before token expires
   getTokenRemainingTime(): number {
     const decodedToken = this.getDecodedToken();
     if (!decodedToken || !decodedToken.exp) return 0;
@@ -59,12 +81,14 @@ class TokenService {
     const currentTime = Date.now() / 1000;
     const remainingTime = decodedToken.exp - currentTime;
 
+    console.log('[TokenService] Осталось времени у токена (сек):', remainingTime);
     return remainingTime > 0 ? Math.floor(remainingTime) : 0;
   }
 
-  // Check if token needs refresh (e.g., less than 5 minutes remaining)
   shouldRefreshToken(thresholdSeconds: number = 300): boolean {
-    return this.getTokenRemainingTime() < thresholdSeconds;
+    const needRefresh = this.getTokenRemainingTime() < thresholdSeconds;
+    console.log('[TokenService] Нужно обновить токен:', needRefresh);
+    return needRefresh;
   }
 }
 
