@@ -43,17 +43,8 @@ RUN find dist -name "*.js" | sort
 RUN echo "📄 Структура CSS файлов:"
 RUN find dist -name "*.css" | sort
 
-# Создание диагностического скрипта
-RUN echo '#!/bin/sh
-echo "====================== ДИАГНОСТИКА КОНТЕЙНЕРА ======================"
-echo "Версия Node.js: $(node -v)"
-echo "Версия npm: $(npm -v)"
-echo "Структура каталогов:"
-find /app -type d -maxdepth 3 | sort
-echo "Файлы конфигурации:"
-find /app -name "*.json" -o -name "*.js" -o -name "*.ts" | grep -v "node_modules" | sort
-echo "=================================================================="
-' > /app/diagnose.sh
+# Создание диагностического скрипта (исправленная версия - весь скрипт в одной команде)
+RUN echo '#!/bin/sh\necho "====================== ДИАГНОСТИКА КОНТЕЙНЕРА ======================"\necho "Версия Node.js: $(node -v)"\necho "Версия npm: $(npm -v)"\necho "Структура каталогов:"\nfind /app -type d -maxdepth 3 | sort\necho "Файлы конфигурации:"\nfind /app -name "*.json" -o -name "*.js" -o -name "*.ts" | grep -v "node_modules" | sort\necho "=================================================================="' > /app/diagnose.sh
 RUN chmod +x /app/diagnose.sh
 RUN /app/diagnose.sh
 
@@ -85,46 +76,12 @@ RUN cat /etc/nginx/conf.d/default.conf
 RUN echo "🔍 Проверка файлов в директории Nginx:"
 RUN ls -la /usr/share/nginx/html
 
-# Создание скрипта для проверки доступности ресурсов
-RUN echo '#!/bin/sh
-echo "Проверка доступности основных ресурсов..."
-for file in /usr/share/nginx/html/index.html $(find /usr/share/nginx/html -name "*.js" -o -name "*.css")
-do
-  if [ -f "$file" ]; then
-    echo "✅ Файл $file существует"
-    echo "   Размер: $(ls -lh $file | awk '"'"'{print $5}'"'"')"
-  else
-    echo "❌ Файл $file НЕ найден"
-  fi
-done
-
-echo "Проверка содержимого index.html:"
-head -n 20 /usr/share/nginx/html/index.html
-echo "..."
-' > /docker-entrypoint.d/check-assets.sh
+# Создание скрипта для проверки доступности ресурсов (исправленная версия - весь скрипт в одной команде)
+RUN echo '#!/bin/sh\necho "Проверка доступности основных ресурсов..."\nfor file in /usr/share/nginx/html/index.html $(find /usr/share/nginx/html -name "*.js" -o -name "*.css")\ndo\n  if [ -f "$file" ]; then\n    echo "✅ Файл $file существует"\n    echo "   Размер: $(ls -lh $file | awk '"'"'{print $5}'"'"')"\n  else\n    echo "❌ Файл $file НЕ найден"\n  fi\ndone\n\necho "Проверка содержимого index.html:"\nhead -n 20 /usr/share/nginx/html/index.html\necho "..."' > /docker-entrypoint.d/check-assets.sh
 RUN chmod +x /docker-entrypoint.d/check-assets.sh
 
-# Создание скрипта для включения gzip и правильной обработки статических ресурсов
-RUN echo 'server {
-    listen 80;
-
-    # Включение gzip
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-
-    # Правильные заголовки для статических ресурсов
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-        root /usr/share/nginx/html;
-        expires max;
-        add_header Cache-Control "public, max-age=31536000";
-    }
-
-    location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files $uri $uri/ /index.html;
-    }
-}' > /etc/nginx/conf.d/default.conf.new
+# Создание скрипта для включения gzip и правильной обработки статических ресурсов (исправленная версия - весь конфиг в одной команде)
+RUN echo 'server {\n    listen 80;\n    \n    # Включение gzip\n    gzip on;\n    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;\n    \n    # Правильные заголовки для статических ресурсов\n    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg)$ {\n        root /usr/share/nginx/html;\n        expires max;\n        add_header Cache-Control "public, max-age=31536000";\n    }\n    \n    location / {\n        root /usr/share/nginx/html;\n        index index.html;\n        try_files $uri $uri/ /index.html;\n    }\n}' > /etc/nginx/conf.d/default.conf.new
 RUN echo "📄 Новая конфигурация Nginx с gzip и обработкой статических ресурсов создана"
 
 # Открываем порт
