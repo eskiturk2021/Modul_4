@@ -32,7 +32,7 @@ RUN cat vite.config.ts
 
 # Сборка приложения
 RUN echo "🏗️ Начало сборки приложения..."
-RUN npm run build || (cat /app/tsconfig.json && ls -la && exit 1)
+RUN npm run build --verbose || (echo "Ошибка сборки:" && cat /app/tsconfig.json && ls -la && npm run build --verbose && exit 1)
 RUN echo "✅ Приложение успешно собрано"
 
 # Проверка результатов сборки
