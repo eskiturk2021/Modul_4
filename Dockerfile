@@ -21,6 +21,10 @@ FROM nginx:alpine AS production
 # Копирование собранных файлов из этапа сборки
 COPY --from=build /app/dist /usr/share/nginx/html
 
+
+COPY ./env.sh /docker-entrypoint.d/
+RUN chmod +x /docker-entrypoint.d/env.sh
+
 # Создание конфигурации nginx
 RUN echo 'server { \
     listen 80; \
