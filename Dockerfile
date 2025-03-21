@@ -69,8 +69,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 RUN echo "✅ Файлы собранного приложения скопированы в nginx"
 
 # Копирование оптимизированного nginx.conf
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY --from=build /app/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Создание оптимизированной главной конфигурации nginx
 RUN echo 'user nginx;' > /etc/nginx/nginx.conf && \
@@ -80,7 +79,6 @@ RUN echo 'user nginx;' > /etc/nginx/nginx.conf && \
     echo '' >> /etc/nginx/nginx.conf && \
     echo 'events {' >> /etc/nginx/nginx.conf && \
     echo '    worker_connections 1024;' >> /etc/nginx/nginx.conf && \
-    echo '    use select;' >> /etc/nginx/nginx.conf && \
     echo '}' >> /etc/nginx/nginx.conf && \
     echo '' >> /etc/nginx/nginx.conf && \
     echo 'http {' >> /etc/nginx/nginx.conf && \
