@@ -4,6 +4,7 @@
 @tailwind utilities;
 
 @layer base {
+  /* Основные переменные для цветов */
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -37,6 +38,7 @@
     --radius: 0.5rem;
   }
 
+  /* Темная тема */
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -67,13 +69,39 @@
 
     --ring: 217.2 32.6% 17.5%;
   }
-}
 
-@layer base {
+  /* Базовые стили для всех элементов */
   * {
     @apply border-border;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
+
+  /* Стили для html и body */
+  html, body {
+    min-height: 100vh; /* Чтобы страница занимала всю высоту экрана */
+    font-family: system-ui, sans-serif; /* Можно добавить любой шрифт по желанию */
+    background-color: var(--background); /* Применение переменной для фона */
+    color: var(--foreground); /* Применение переменной для цвета текста */
+  }
+
+  /* Стиль для body */
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Пример компонента для кнопок (если нужно добавить стили для компонентов) */
+  .btn {
+    @apply px-4 py-2 bg-primary text-primary-foreground rounded-lg;
+  }
+}
+
+@layer utilities {
+  /* Пример кастомной утилиты (если нужно добавить дополнительные утилиты) */
+  .btn-rounded {
+    @apply rounded-lg;
   }
 }
