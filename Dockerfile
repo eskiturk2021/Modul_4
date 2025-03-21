@@ -30,7 +30,7 @@ RUN cat tsconfig.json
 RUN echo "📄 Содержимое vite.config.ts:"
 RUN cat vite.config.ts
 
-# Сборка приложения (сохраняем оригинальную команду)
+# Сборка приложения
 RUN echo "🏗️ Начало сборки приложения..."
 RUN npm run build || (cat /app/tsconfig.json && ls -la && exit 1)
 RUN echo "✅ Приложение успешно собрано"
@@ -43,7 +43,7 @@ RUN find dist -name "*.js" | sort
 RUN echo "📄 Структура CSS файлов:"
 RUN find dist -name "*.css" | sort
 
-# Создание диагностического скрипта (исправленная версия - с написанием строк по отдельности)
+# Создание диагностического скрипта
 RUN touch /app/diagnose.sh && \
     echo '#!/bin/sh' > /app/diagnose.sh && \
     echo 'echo "====================== ДИАГНОСТИКА КОНТЕЙНЕРА ======================"' >> /app/diagnose.sh && \
@@ -60,35 +60,51 @@ RUN touch /app/diagnose.sh && \
 # Выполняем диагностику
 RUN /bin/sh /app/diagnose.sh
 
-# Этап production
-FROM nginx:alpine AS production
+# Этап production - используем более легковесный образ
+FROM nginx:alpine-slim AS production
 RUN echo "🚀 Начало настройки production-окружения..."
 
 # Копирование собранных файлов из этапа сборки
 COPY --from=build /app/dist /usr/share/nginx/html
 RUN echo "✅ Файлы собранного приложения скопированы в nginx"
 
-# Создание конфигурации nginx (сохраняем оригинальную конфигурацию)
-RUN echo "⚙️ Настройка конфигурации Nginx..."
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-RUN echo "✅ Конфигурация Nginx создана"
+# Копирование оптимизированного nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=build /app/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Создание оптимизированной главной конфигурации nginx
+RUN echo 'user nginx;' > /etc/nginx/nginx.conf && \
+    echo 'worker_processes 2;' >> /etc/nginx/nginx.conf && \
+    echo 'error_log /var/log/nginx/error.log warn;' >> /etc/nginx/nginx.conf && \
+    echo 'pid /var/run/nginx.pid;' >> /etc/nginx/nginx.conf && \
+    echo '' >> /etc/nginx/nginx.conf && \
+    echo 'events {' >> /etc/nginx/nginx.conf && \
+    echo '    worker_connections 1024;' >> /etc/nginx/nginx.conf && \
+    echo '    use select;' >> /etc/nginx/nginx.conf && \
+    echo '}' >> /etc/nginx/nginx.conf && \
+    echo '' >> /etc/nginx/nginx.conf && \
+    echo 'http {' >> /etc/nginx/nginx.conf && \
+    echo '    include /etc/nginx/mime.types;' >> /etc/nginx/nginx.conf && \
+    echo '    default_type application/octet-stream;' >> /etc/nginx/nginx.conf && \
+    echo '    sendfile on;' >> /etc/nginx/nginx.conf && \
+    echo '    keepalive_timeout 65;' >> /etc/nginx/nginx.conf && \
+    echo '    aio off;' >> /etc/nginx/nginx.conf && \
+    echo '    gzip on;' >> /etc/nginx/nginx.conf && \
+    echo '    include /etc/nginx/conf.d/*.conf;' >> /etc/nginx/nginx.conf && \
+    echo '}' >> /etc/nginx/nginx.conf
+
+RUN echo "✅ Оптимизированная конфигурация Nginx создана"
 
 # Проверка конфигурации
 RUN echo "🔍 Проверка созданной конфигурации Nginx:"
+RUN cat /etc/nginx/nginx.conf
 RUN cat /etc/nginx/conf.d/default.conf
 
 # Проверка файлов в Nginx
 RUN echo "🔍 Проверка файлов в директории Nginx:"
 RUN ls -la /usr/share/nginx/html
 
-# Создание скрипта для проверки доступности ресурсов (исправленная версия)
+# Создание скрипта для проверки доступности ресурсов
 RUN touch /docker-entrypoint.d/check-assets.sh && \
     echo '#!/bin/sh' > /docker-entrypoint.d/check-assets.sh && \
     echo 'echo "Проверка доступности основных ресурсов..."' >> /docker-entrypoint.d/check-assets.sh && \
@@ -106,36 +122,13 @@ RUN touch /docker-entrypoint.d/check-assets.sh && \
     echo 'echo "..."' >> /docker-entrypoint.d/check-assets.sh && \
     chmod +x /docker-entrypoint.d/check-assets.sh
 
-# Создание улучшенной конфигурации Nginx с gzip
-RUN echo 'server {' > /etc/nginx/conf.d/default.conf.new && \
-    echo '    listen 80;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    # Включение gzip' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    gzip on;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    # Правильные заголовки для статических ресурсов' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '        expires max;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '        add_header Cache-Control "public, max-age=31536000";' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    location / {' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '        index index.html;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf.new && \
-    echo '}' >> /etc/nginx/conf.d/default.conf.new && \
-    echo "📄 Новая конфигурация Nginx с gzip и обработкой статических ресурсов создана"
-
-# Заменяем стандартную конфигурацию на оптимизированную
-RUN cp /etc/nginx/conf.d/default.conf.new /etc/nginx/conf.d/default.conf && \
-    echo "✅ Оптимизированная конфигурация Nginx применена"
+# Копирование скрипта подстановки переменных окружения
+COPY env.sh /docker-entrypoint.d/env.sh
+RUN chmod +x /docker-entrypoint.d/env.sh
 
 # Открываем порт
 EXPOSE 80
 RUN echo "🌐 Порт 80 открыт"
 
-# Запуск nginx (сохраняем оригинальную команду)
+# Запуск nginx
 CMD ["nginx", "-g", "daemon off;"]
