@@ -4,8 +4,10 @@ import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
+// Основной компонент Tabs
 const Tabs = TabsPrimitive.Root
 
+// Компонент для списка вкладок (TabsList)
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -21,6 +23,7 @@ const TabsList = React.forwardRef<
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+// Компонент для триггера вкладки (TabsTrigger), который будет активировать вкладку
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -36,6 +39,7 @@ const TabsTrigger = React.forwardRef<
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
+// Компонент для контента вкладки (TabsContent), который будет отображать содержимое для каждой вкладки
 const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
@@ -51,4 +55,5 @@ const TabsContent = React.forwardRef<
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
 
+// Экспортируем все компоненты для использования в других частях приложения
 export { Tabs, TabsList, TabsTrigger, TabsContent }
