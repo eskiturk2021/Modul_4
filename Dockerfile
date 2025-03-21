@@ -96,7 +96,7 @@ RUN touch /docker-entrypoint.d/check-assets.sh && \
     echo 'do' >> /docker-entrypoint.d/check-assets.sh && \
     echo '  if [ -f "$file" ]; then' >> /docker-entrypoint.d/check-assets.sh && \
     echo '    echo "✅ Файл $file существует"' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '    echo "   Размер: $(ls -lh $file | awk '\''{print $5}'\''"' >> /docker-entrypoint.d/check-assets.sh && \
+    echo '    echo "   Размер: $(ls -lh $file | awk '"'"'{print $5}'"'"')"' >> /docker-entrypoint.d/check-assets.sh && \
     echo '  else' >> /docker-entrypoint.d/check-assets.sh && \
     echo '    echo "❌ Файл $file НЕ найден"' >> /docker-entrypoint.d/check-assets.sh && \
     echo '  fi' >> /docker-entrypoint.d/check-assets.sh && \
@@ -128,6 +128,10 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf.new && \
     echo '    }' >> /etc/nginx/conf.d/default.conf.new && \
     echo '}' >> /etc/nginx/conf.d/default.conf.new && \
     echo "📄 Новая конфигурация Nginx с gzip и обработкой статических ресурсов создана"
+
+# Заменяем стандартную конфигурацию на оптимизированную
+RUN cp /etc/nginx/conf.d/default.conf.new /etc/nginx/conf.d/default.conf && \
+    echo "✅ Оптимизированная конфигурация Nginx применена"
 
 # Открываем порт
 EXPOSE 80
