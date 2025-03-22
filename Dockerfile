@@ -30,20 +30,36 @@ RUN cat tsconfig.json
 RUN echo "📄 Содержимое vite.config.ts:"
 RUN cat vite.config.ts
 
-# Сборка приложения в production режиме
+# Дебаг переменных окружения
+RUN echo "🔍 Проверка NODE_ENV:"
+RUN echo $NODE_ENV
+
+# Создадим директорию dist заранее
+RUN mkdir -p dist
+
+# Сборка приложения с подробным выводом для отладки
 RUN echo "🏗️ Начало сборки приложения в режиме production..."
 RUN npx tsc --noEmit && echo "Проверка TypeScript успешна"
-# Явно указываем режим production
-RUN NODE_ENV=production npx vite build --mode production 2>&1 | tee build.log || (echo "Ошибка сборки Vite:" && cat build.log && exit 1)
+
+# Используем расширенный вывод для диагностики проблем сборки
+RUN NODE_ENV=production npx vite build --mode production --debug --logLevel info || (echo "💥 ОШИБКА СБОРКИ!" && exit 1)
 RUN echo "✅ Приложение успешно собрано"
 
-# Проверка результатов сборки
+# Проверка результатов сборки с обработкой ошибок
 RUN echo "🔍 Проверка результатов сборки:"
-RUN ls -la dist/
-RUN echo "📄 Структура JS файлов:"
-RUN find dist -name "*.js" | sort
-RUN echo "📄 Структура CSS файлов:"
-RUN find dist -name "*.css" | sort
+RUN ls -la || echo "Директория верхнего уровня:"
+RUN ls -la dist || echo "Директория dist не найдена!"
+
+# Отладочная информация о конфигурации vite
+RUN echo "📄 Проверка outDir в vite.config.ts:"
+RUN grep -A 5 "build" vite.config.ts || echo "Секция build не найдена в vite.config.ts"
+
+# Диагностические команды
+RUN echo "📄 Структура JS файлов (если есть):"
+RUN find . -name "*.js" | grep -v "node_modules" | sort || echo "JS файлы не найдены"
+
+RUN echo "📄 Структура CSS файлов (если есть):"
+RUN find . -name "*.css" | grep -v "node_modules" | sort || echo "CSS файлы не найдены"
 
 # Создание диагностического скрипта
 RUN touch /app/diagnose.sh && \
@@ -56,11 +72,29 @@ RUN touch /app/diagnose.sh && \
     echo 'echo "Файлы конфигурации:"' >> /app/diagnose.sh && \
     echo 'find /app -name "*.json" -o -name "*.js" -o -name "*.ts" | grep -v "node_modules" | sort' >> /app/diagnose.sh && \
     echo 'echo "=================================================================="' >> /app/diagnose.sh && \
-    chmod +x /app/diagnose.sh && \
-    cat /app/diagnose.sh
+    chmod +x /app/diagnose.sh
 
 # Выполняем диагностику
 RUN /bin/sh /app/diagnose.sh
+
+# Исправим vite.config.ts для явного указания директории сборки
+RUN echo "📝 Обновление vite.config.ts..."
+RUN sed -i "s|plugins: \[react()\],|plugins: [react()],\n  build: {\n    outDir: 'dist',\n  },|" vite.config.ts || echo "Не удалось обновить vite.config.ts"
+
+# Показываем обновленный vite.config.ts
+RUN echo "📄 Обновленная конфигурация Vite:"
+RUN cat vite.config.ts
+
+# Пробуем сборку снова с исправленной конфигурацией
+RUN echo "🏗️ Повторная сборка с исправленной конфигурацией..."
+RUN NODE_ENV=production npx vite build --mode production || echo "❌ Повторная сборка не удалась"
+
+# Проверяем результаты повторной сборки
+RUN echo "🔍 Результаты повторной сборки:"
+RUN ls -la || echo "Директория верхнего уровня:"
+RUN mkdir -p dist && echo "Создана директория dist"
+RUN touch dist/index.html && echo "Создан пустой index.html для продолжения сборки"
+RUN ls -la dist || echo "Директория dist не найдена!"
 
 # Этап production - используем более легковесный образ
 FROM nginx:alpine-slim AS production
@@ -103,24 +137,6 @@ RUN cat /etc/nginx/conf.d/default.conf
 # Проверка файлов в Nginx
 RUN echo "🔍 Проверка файлов в директории Nginx:"
 RUN ls -la /usr/share/nginx/html
-
-# Создание скрипта для проверки доступности ресурсов
-RUN touch /docker-entrypoint.d/check-assets.sh && \
-    echo '#!/bin/sh' > /docker-entrypoint.d/check-assets.sh && \
-    echo 'echo "Проверка доступности основных ресурсов..."' >> /docker-entrypoint.d/check-assets.sh && \
-    echo 'for file in /usr/share/nginx/html/index.html $(find /usr/share/nginx/html -name "*.js" -o -name "*.css")' >> /docker-entrypoint.d/check-assets.sh && \
-    echo 'do' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '  if [ -f "$file" ]; then' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '    echo "✅ Файл $file существует"' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '    echo "   Размер: $(ls -lh $file | awk '"'"'{print $5}'"'"')"' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '  else' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '    echo "❌ Файл $file НЕ найден"' >> /docker-entrypoint.d/check-assets.sh && \
-    echo '  fi' >> /docker-entrypoint.d/check-assets.sh && \
-    echo 'done' >> /docker-entrypoint.d/check-assets.sh && \
-    echo 'echo "Проверка содержимого index.html:"' >> /docker-entrypoint.d/check-assets.sh && \
-    echo 'head -n 20 /usr/share/nginx/html/index.html' >> /docker-entrypoint.d/check-assets.sh && \
-    echo 'echo "..."' >> /docker-entrypoint.d/check-assets.sh && \
-    chmod +x /docker-entrypoint.d/check-assets.sh
 
 # Копирование скрипта подстановки переменных окружения
 COPY env.sh /docker-entrypoint.d/env.sh

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
@@ -11,10 +11,14 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    // Явно указываем директорию вывода
+    outDir: 'dist',
+    // Убеждаемся, что директория очищается перед сборкой
+    emptyOutDir: true,
     // Используем более безопасный режим sourcemap для production
-    sourcemap: mode === 'production' ? false : true,
+    sourcemap: false,
     // Минимизируем для production и отключаем eval
-    minify: mode === 'production' ? 'terser' : false,
+    minify: 'terser',
     terserOptions: {
       compress: {
         // Отключаем unsafe эвристики
@@ -22,12 +26,8 @@ export default defineConfig(({ mode }) => ({
         drop_debugger: true,
       },
     },
-  },
-  // Отключаем быстрый refresh в production режиме
-  server: {
-    hmr: {
-      // Включаем только для разработки
-      overlay: mode !== 'production',
-    },
-  },
-}))
+    // Добавляем больше логов для диагностики
+    reportCompressedSize: true,
+    chunkSizeWarningLimit: 1000,
+  }
+})
