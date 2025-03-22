@@ -68,7 +68,11 @@ class TokenService {
 
   getAuthHeader(): Record<string, string> {
     const token = this.getToken();
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    // Если токен существует, возвращаем объект с заголовком Authorization
+    // Если токена нет, возвращаем объект с пустым заголовком, чтобы соответствовать типу Record<string, string>
+    const headers: Record<string, string> = token
+      ? { Authorization: `Bearer ${token}` }
+      : { "x-no-auth": "true" };
 
     console.log('[TokenService] Заголовки авторизации:', headers);
     return headers;

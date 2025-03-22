@@ -3,6 +3,11 @@ import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import tokenService from './tokenService';
 import { useEffect } from 'react';
 
+// Добавляем расширенный интерфейс для AxiosRequestConfig
+interface CustomAxiosRequestConfig extends AxiosRequestConfig {
+  _retry?: boolean;
+}
+
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
 
@@ -42,7 +47,7 @@ api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as CustomAxiosRequestConfig;
     if (!originalRequest) {
       return Promise.reject(error);
     }
@@ -61,12 +66,11 @@ api.interceptors.response.use(
         const response = await api.post('/api/auth/refresh',
             { token: currentToken },
             {
-              _retry: true, //  Добавил , чтобы избежать бесконечного цикла
               headers: {
                 'Content-Type': 'application/json',
                 'X-API-Key': API_KEY
               }
-            }
+            } as CustomAxiosRequestConfig
         );
 
         const { token } = response.data;

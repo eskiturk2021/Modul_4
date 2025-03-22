@@ -7,6 +7,12 @@ import apiService from '@/services/apiService';  // добавил ссылку
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
 
+// Добавляем интерфейс для ответа при обновлении токена
+interface RefreshTokenResponse {
+  token: string;
+  // другие поля, если они есть в ответе
+}
+
 type User = {
   id: string;
   username: string;
@@ -79,7 +85,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 //    }
 //  }, 60000); // Check every minute
 
-    return () => clearInterval(tokenCheckInterval);
+//  return () => clearInterval(tokenCheckInterval);
+//}, [token]);
+    return () => {
+    };
   }, [token]);
 
   const login = async (email: string, password: string) => {
@@ -130,9 +139,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Попытка 1: Стандартный вызов через apiService
           try {
               // Call API to refresh token using apiService
-              const response = await apiService.post('/api/auth/refresh', { token: currentToken });
+              const response = await apiService.post<RefreshTokenResponse>('/api/auth/refresh', { token: currentToken });
 
-              const { token: newToken } = response.data;
+              const { token: newToken } = response;
               tokenService.setToken(newToken);
               setToken(newToken);
 
@@ -155,7 +164,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               console.error('Standard token refresh failed, trying fallback method', error);
 
               // Попытка 2: Использование токена в заголовке
-              const response = await axios.post(
+              const response = await axios.post<RefreshTokenResponse>(
                 `${import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app'}/api/auth/refresh`,
                  {},  // Пустое тело
                  {
