@@ -30,10 +30,11 @@ RUN cat tsconfig.json
 RUN echo "📄 Содержимое vite.config.ts:"
 RUN cat vite.config.ts
 
-# Сборка приложения
-RUN echo "🏗️ Начало сборки приложения..."
+# Сборка приложения в production режиме
+RUN echo "🏗️ Начало сборки приложения в режиме production..."
 RUN npx tsc --noEmit && echo "Проверка TypeScript успешна"
-RUN NODE_ENV=production npx vite build --debug 2>&1 | tee build.log || (echo "Ошибка сборки Vite:" && cat build.log && exit 1)
+# Явно указываем режим production
+RUN NODE_ENV=production npx vite build --mode production 2>&1 | tee build.log || (echo "Ошибка сборки Vite:" && cat build.log && exit 1)
 RUN echo "✅ Приложение успешно собрано"
 
 # Проверка результатов сборки
