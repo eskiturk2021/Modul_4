@@ -33,7 +33,7 @@ RUN cat vite.config.ts
 # Сборка приложения
 RUN echo "🏗️ Начало сборки приложения..."
 RUN npx tsc --noEmit && echo "Проверка TypeScript успешна"
-RUN NODE_ENV=production npx vite build --debug 2>&1 | tee build.log || (echo "Ошибка сборки Vite:" && cat build.log && exit 1)
+RUN NODE_ENV=production npx vite build --debug 2>&1 | tee build.log && ls -la || (echo "Ошибка сборки Vite:" && cat build.log && ls -la && exit 1)
 RUN echo "✅ Приложение успешно собрано"
 
 # Проверка результатов сборки
