@@ -14,7 +14,5 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     assetsDir: 'assets',
-    // Можно включить минификацию для продакшена
-    minify: import.meta.env.PROD,
   }
 })
