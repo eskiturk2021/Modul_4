@@ -63,14 +63,14 @@ RUN echo "Запуск сборки через vite напрямую..."
 RUN NODE_ENV=production NODE_OPTIONS=--no-warnings npx vite build || echo "Первая попытка сборки не удалась, пробуем запасной вариант"
 
 # Запасной вариант сборки
-RUN if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
-    echo "Создаем минимальную сборку вручную...";
-    mkdir -p dist;
-    cp index.html dist/;
-    mkdir -p dist/assets;
-    echo "console.log('Минимальная версия приложения');" > dist/assets/index.js;
-    echo "body { font-family: sans-serif; }" > dist/assets/index.css;
-    echo "<script src='/assets/index.js'></script><link rel='stylesheet' href='/assets/index.css'>" >> dist/index.html;
+RUN if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then \
+    echo "Создаем минимальную сборку вручную..." && \
+    mkdir -p dist && \
+    cp index.html dist/ && \
+    mkdir -p dist/assets && \
+    echo "console.log('Минимальная версия приложения');" > dist/assets/index.js && \
+    echo "body { font-family: sans-serif; }" > dist/assets/index.css && \
+    echo "<script src='/assets/index.js'></script><link rel='stylesheet' href='/assets/index.css'>" >> dist/index.html; \
 fi
 
 RUN echo "Проверка содержимого директории после сборки:"
