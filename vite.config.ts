@@ -11,9 +11,15 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist', // Явно указать директорию вывода
+    outDir: 'dist',
     emptyOutDir: true,
-    minify: 'terser',
-    sourcemap: false
+    assetsDir: 'assets',
+    // Устанавливаем режим генерации для корректной сборки
+    rollupOptions: {
+      output: {
+        // Гарантируем, что файлы будут созданы
+        manualChunks: undefined,
+      }
+    }
   }
 })
