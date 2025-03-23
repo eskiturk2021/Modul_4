@@ -55,7 +55,7 @@ RUN cat vite.config.ts
 
 # Добавляем для совместимости с ESM
 RUN echo "Настройка совместимости с ESM..."
-RUN echo '{ "type": "commonjs", "composite": true }' > tsconfig.node.json
+RUN echo '{ "type": "commonjs", "compilerOptions": { "composite": true, "skipLibCheck": true, "module": "ESNext", "moduleResolution": "bundler", "allowSyntheticDefaultImports": true }, "include": ["vite.config.ts"] }' > tsconfig.node.json
 
 # Сначала выполняем только проверку TypeScript с игнорированием ошибок
 RUN npx tsc --noEmit || echo "⚠️ Проверка TypeScript не прошла, но продолжаем сборку"
@@ -69,15 +69,21 @@ RUN if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then \
     echo "Создаем минимальную сборку вручную..." && \
     mkdir -p dist && \
     cp index.html dist/ && \
+    # Модифицируем index.html только один раз
+    sed -i 's|<script src="/assets/index.js"></script>|<script type="module" src="/src/main.tsx"></script>|g' dist/index.html && \
     mkdir -p dist/assets && \
     echo "console.log('Минимальная версия приложения');" > dist/assets/index.js && \
-    echo "body { font-family: sans-serif; }" > dist/assets/index.css && \
-    echo "<script src='/assets/index.js'></script><link rel='stylesheet' href='/assets/index.css'>" >> dist/index.html; \
+    echo "body { font-family: sans-serif; }" > dist/assets/index.css; \
+fi
+
+# Копирование favicon.ico в корень dist
+RUN if [ -f "public/favicon.ico" ]; then \
+    cp public/favicon.ico dist/favicon.ico; \
 fi
 
 RUN echo "Модификация index.html для использования собранных скриптов..."
 RUN if [ -f "dist/index.html" ]; then \
-    sed -i 's|<script type="module" src="/src/main.tsx"></script>|<script type="text/javascript" src="/assets/index.js"></script>|g' dist/index.html; \
+    sed -i 's|<script type="module" src="/src/main.tsx"></script>|<script type="module" src="/assets/index.js"></script>|g' dist/index.html; \
 fi
 
 RUN echo "Проверка содержимого директории после сборки:"
