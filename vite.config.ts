@@ -11,7 +11,9 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: 'dist', // Явно указать директорию вывода
     emptyOutDir: true,
+    minify: 'terser',
+    sourcemap: false
   }
-});
+})
