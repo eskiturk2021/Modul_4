@@ -114,11 +114,6 @@ COPY --from=build /app/dist/ /usr/share/nginx/html/
 COPY --from=build /app/public/ /usr/share/nginx/html/
 RUN echo "✅ Файлы приложения скопированы"
 
-# Создаем файл-заглушку для случая отсутствия файлов
-RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
-        echo "<html><body><h1>Customer Dashboard</h1><p>Приложение не было корректно собрано. Пожалуйста, проверьте логи сборки.</p></body></html>" > /usr/share/nginx/html/index.html; \
-    fi
-
 # Копирование оптимизированного nginx.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
