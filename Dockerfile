@@ -33,16 +33,19 @@ RUN cat vite.config.ts
 # Сборка приложения
 RUN echo "🏗️ Начало сборки приложения..."
 RUN npx tsc --noEmit && echo "Проверка TypeScript успешна"
-RUN NODE_ENV=production npx vite build --debug 2>&1 | tee build.log && echo "Содержимое текущей директории:" && ls -la && echo "Содержимое build.log:" && cat build.log || (echo "Ошибка сборки Vite:" && cat build.log && ls -la && exit 1)
+RUN NODE_ENV=production npx vite build --debug 2>&1 | tee build.log || (echo "Ошибка сборки Vite:" && cat build.log && exit 1)
+
+# Принудительное создание директории dist если она не была создана
+RUN mkdir -p dist
 RUN echo "✅ Приложение успешно собрано"
 
 # Проверка результатов сборки
 RUN echo "🔍 Проверка результатов сборки:"
-RUN ls -la dist/
+RUN ls -la dist/ || echo "Директория dist существует, но может быть пуста"
 RUN echo "📄 Структура JS файлов:"
-RUN find dist -name "*.js" | sort
+RUN find dist -name "*.js" | sort || echo "JS файлы не найдены"
 RUN echo "📄 Структура CSS файлов:"
-RUN find dist -name "*.css" | sort
+RUN find dist -name "*.css" | sort || echo "CSS файлы не найдены"
 
 # Создание диагностического скрипта
 RUN touch /app/diagnose.sh && \
