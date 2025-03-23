@@ -75,6 +75,11 @@ RUN if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then \
     echo "<script src='/assets/index.js'></script><link rel='stylesheet' href='/assets/index.css'>" >> dist/index.html; \
 fi
 
+RUN echo "Модификация index.html для использования собранных скриптов..."
+RUN if [ -f "dist/index.html" ]; then \
+    sed -i 's|<script type="module" src="/src/main.tsx"></script>|<script type="text/javascript" src="/assets/index.js"></script>|g' dist/index.html; \
+fi
+
 RUN echo "Проверка содержимого директории после сборки:"
 RUN ls -la dist
 RUN echo "✅ Приложение собрано"
