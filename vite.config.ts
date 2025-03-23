@@ -14,14 +14,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     assetsDir: 'assets',
-    // Отключаем минимизацию для диагностики
-    minify: false,
-    // Устанавливаем режим генерации для корректной сборки
-    rollupOptions: {
-      output: {
-        // Гарантируем, что файлы будут созданы
-        manualChunks: undefined,
-      }
-    }
+    // Можно включить минификацию для продакшена
+    minify: import.meta.env.PROD,
   }
 })

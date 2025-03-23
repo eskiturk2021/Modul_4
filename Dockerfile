@@ -55,7 +55,7 @@ RUN cat vite.config.ts
 
 # Добавляем для совместимости с ESM
 RUN echo "Настройка совместимости с ESM..."
-RUN echo '{ "type": "commonjs" }' > tsconfig.node.json
+RUN echo '{ "type": "commonjs", "composite": true }' > tsconfig.node.json
 
 # Сначала выполняем только проверку TypeScript с игнорированием ошибок
 RUN npx tsc --noEmit || echo "⚠️ Проверка TypeScript не прошла, но продолжаем сборку"
