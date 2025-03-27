@@ -115,7 +115,7 @@ export default function Settings() {
   const handleSavePrompt = async () => {
     setIsSavingPrompt(true);
     try {
-      await axios.put('/api/system/prompt', { content: systemPrompt });
+      await axios.put('/api/settings/system/prompt', { content: systemPrompt });
       alert('System prompt updated successfully');
     } catch (error) {
       console.error('Error updating system prompt:', error);
