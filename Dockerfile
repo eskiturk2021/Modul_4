@@ -130,12 +130,12 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Создание оптимизированной главной конфигурации nginx
 RUN echo 'user nginx;' > /etc/nginx/nginx.conf && \
-    echo 'worker_processes 2;' >> /etc/nginx/nginx.conf && \
+    echo 'worker_processes 1;' >> /etc/nginx/nginx.conf && \
     echo 'error_log /var/log/nginx/error.log warn;' >> /etc/nginx/nginx.conf && \
     echo 'pid /var/run/nginx.pid;' >> /etc/nginx/nginx.conf && \
     echo '' >> /etc/nginx/nginx.conf && \
     echo 'events {' >> /etc/nginx/nginx.conf && \
-    echo '    worker_connections 1024;' >> /etc/nginx/nginx.conf && \
+    echo '    worker_connections 512;' >> /etc/nginx/nginx.conf && \
     echo '}' >> /etc/nginx/nginx.conf && \
     echo '' >> /etc/nginx/nginx.conf && \
     echo 'http {' >> /etc/nginx/nginx.conf && \
