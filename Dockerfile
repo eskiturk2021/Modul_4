@@ -143,7 +143,6 @@ RUN echo 'user nginx;' > /etc/nginx/nginx.conf && \
     echo '    default_type application/octet-stream;' >> /etc/nginx/nginx.conf && \
     echo '    sendfile on;' >> /etc/nginx/nginx.conf && \
     echo '    keepalive_timeout 65;' >> /etc/nginx/nginx.conf && \
-    echo '    aio off;' >> /etc/nginx/nginx.conf && \
     echo '    gzip on;' >> /etc/nginx/nginx.conf && \
     echo '    include /etc/nginx/conf.d/*.conf;' >> /etc/nginx/nginx.conf && \
     echo '}' >> /etc/nginx/nginx.conf
