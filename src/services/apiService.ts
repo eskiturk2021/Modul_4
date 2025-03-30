@@ -13,7 +13,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJx
 
 // Create a custom axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://modul301-production.up.railway.app/',
   timeout: 50000,
   headers: {
     'Content-Type': 'application/json',
