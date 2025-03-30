@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
-import { RefreshCw, Save, Plus, Trash, Edit } from 'lucide-react';
+import { RefreshCw, Save, Plus, Trash, Edit, RotateCcw, Check } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -29,9 +29,12 @@ export default function Settings() {
   });
 
   // System prompt state
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [currentSystemPrompt, setCurrentSystemPrompt] = useState('');
+  const [editedSystemPrompt, setEditedSystemPrompt] = useState('');
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(true);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [hasPromptChanges, setHasPromptChanges] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Fetch services
   useEffect(() => {
@@ -67,7 +70,11 @@ export default function Settings() {
         console.log("Пытаемся получить системный промпт с URL: /api/settings/system");
         const response = await axios.get('/api/settings/system');
         console.log("Ответ при загрузке системного промпта:", response.data);
-        setSystemPrompt(response.data.system_prompt || "");
+
+        const promptText = response.data.system_prompt || "";
+        setCurrentSystemPrompt(promptText);
+        setEditedSystemPrompt(promptText);
+        setHasPromptChanges(false);
       } catch (error) {
         console.error("Ошибка при загрузке системного промпта:", error);
         console.log("Детали ошибки:", {
@@ -81,7 +88,11 @@ export default function Settings() {
           console.log("Пытаемся получить системный промпт с альтернативного URL: /api/system/prompt");
           const altResponse = await axios.get('/api/system/prompt');
           console.log("Ответ с альтернативного URL:", altResponse.data);
-          setSystemPrompt(altResponse.data.content || "");
+
+          const promptText = altResponse.data.content || "";
+          setCurrentSystemPrompt(promptText);
+          setEditedSystemPrompt(promptText);
+          setHasPromptChanges(false);
         } catch (altError) {
           console.error("Ошибка при загрузке с альтернативного URL:", altError);
         }
@@ -93,6 +104,11 @@ export default function Settings() {
 
     fetchSystemPrompt();
   }, []);
+
+  // Check for changes in system prompt
+  useEffect(() => {
+    setHasPromptChanges(currentSystemPrompt !== editedSystemPrompt);
+  }, [currentSystemPrompt, editedSystemPrompt]);
 
   // Handle creating a new service
   const handleCreateService = async () => {
@@ -138,21 +154,35 @@ export default function Settings() {
     }
   };
 
+  // Handle resetting system prompt to original
+  const handleResetPrompt = () => {
+    setEditedSystemPrompt(currentSystemPrompt);
+    setHasPromptChanges(false);
+  };
+
   // Handle saving system prompt
   const handleSavePrompt = async () => {
-    console.log("Начинаем сохранение системного промпта:", systemPrompt);
+    console.log("Начинаем сохранение системного промпта:", editedSystemPrompt);
     setIsSavingPrompt(true);
 
     try {
       console.log("Отправляем запрос на URL:", '/api/settings/system/prompt');
-      console.log("Данные запроса:", { content: systemPrompt });
+      console.log("Данные запроса:", { content: editedSystemPrompt });
 
       // Попробуем отправить на первый возможный URL
       try {
         console.log("Пытаемся отправить на первый URL: /api/settings/system/prompt");
-        const response = await axios.put('/api/settings/system/prompt', { content: systemPrompt });
+        const response = await axios.put('/api/settings/system/prompt', { content: editedSystemPrompt });
         console.log("Успешный ответ от /api/settings/system/prompt:", response.data);
-        alert('System prompt updated successfully');
+
+        // Обновляем текущий промпт после успешного сохранения
+        setCurrentSystemPrompt(editedSystemPrompt);
+        setHasPromptChanges(false);
+
+        // Показываем сообщение об успехе
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+
         return;
       } catch (firstError) {
         console.error("Ошибка при отправке на /api/settings/system/prompt:", firstError);
@@ -166,9 +196,17 @@ export default function Settings() {
         // Если первый URL не сработал, пробуем второй
         console.log("Пытаемся отправить на второй URL: /api/system/prompt");
         try {
-          const response = await axios.put('/api/system/prompt', { content: systemPrompt });
+          const response = await axios.put('/api/system/prompt', { content: editedSystemPrompt });
           console.log("Успешный ответ от /api/system/prompt:", response.data);
-          alert('System prompt updated successfully');
+
+          // Обновляем текущий промпт после успешного сохранения
+          setCurrentSystemPrompt(editedSystemPrompt);
+          setHasPromptChanges(false);
+
+          // Показываем сообщение об успехе
+          setShowSuccessMessage(true);
+          setTimeout(() => setShowSuccessMessage(false), 3000);
+
           return;
         } catch (secondError) {
           console.error("Ошибка при отправке на /api/system/prompt:", secondError);
@@ -210,7 +248,7 @@ export default function Settings() {
       </div>
 
       <div className="mt-6">
-        <Tabs defaultValue="services">
+        <Tabs defaultValue="system-prompt">
           <TabsList className="mb-6">
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="system-prompt">System Prompt</TabsTrigger>
@@ -441,15 +479,39 @@ export default function Settings() {
                   </div>
                 ) : (
                   <div className="mt-6">
-                    <textarea
-                      value={systemPrompt}
-                      onChange={(e) => setSystemPrompt(e.target.value)}
-                      className="block w-full h-96 py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
-                    />
-                    <div className="mt-4">
+                    <div className="mb-4">
+                      <h3 className="text-md font-medium text-gray-900 mb-2">Current System Prompt</h3>
+                      <div className="p-4 bg-gray-50 rounded-md border border-gray-200 h-48 overflow-y-auto">
+                        <pre className="text-sm font-mono whitespace-pre-wrap text-gray-700">{currentSystemPrompt}</pre>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-md font-medium text-gray-900">Edit System Prompt</h3>
+                        {hasPromptChanges && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleResetPrompt}
+                            className="flex items-center"
+                          >
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Reset Changes
+                          </Button>
+                        )}
+                      </div>
+                      <textarea
+                        value={editedSystemPrompt}
+                        onChange={(e) => setEditedSystemPrompt(e.target.value)}
+                        className="block w-full h-96 py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
+                      />
+                    </div>
+
+                    <div className="mt-4 flex items-center">
                       <Button
                         onClick={handleSavePrompt}
-                        disabled={isSavingPrompt}
+                        disabled={isSavingPrompt || !hasPromptChanges}
                         className="inline-flex items-center"
                       >
                         {isSavingPrompt ? (
@@ -464,6 +526,19 @@ export default function Settings() {
                           </>
                         )}
                       </Button>
+
+                      {showSuccessMessage && (
+                        <div className="ml-4 flex items-center text-green-600">
+                          <Check className="h-5 w-5 mr-1" />
+                          Prompt successfully updated
+                        </div>
+                      )}
+
+                      {hasPromptChanges && (
+                        <div className="ml-4 text-sm text-amber-600">
+                          You have unsaved changes
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
