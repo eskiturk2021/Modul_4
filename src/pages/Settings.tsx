@@ -67,34 +67,44 @@ export default function Settings() {
       console.log("Начинаем загрузку системного промпта");
       setIsLoadingPrompt(true);
       try {
-        console.log("Пытаемся получить системный промпт с URL: /api/settings/system");
-        const response = await axios.get('/api/settings/system');
+        console.log("Запрос системного промпта с URL: /api/system/prompt");
+        const response = await axios.get('/api/system/prompt');
         console.log("Ответ при загрузке системного промпта:", response.data);
 
-        const promptText = response.data.system_prompt || "";
+        // Извлекаем текст промпта из ответа
+        const promptText = response.data.prompt || "";
         setCurrentSystemPrompt(promptText);
         setEditedSystemPrompt(promptText);
         setHasPromptChanges(false);
       } catch (error) {
         console.error("Ошибка при загрузке системного промпта:", error);
-        console.log("Детали ошибки:", {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data
-        });
 
-        // Пробуем альтернативный URL
+        // Дополнительная информация об ошибке
+        if (error.response) {
+          console.log("Детали ответа сервера:", {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data
+          });
+        }
+
+        // Альтернативная попытка загрузки
         try {
-          console.log("Пытаемся получить системный промпт с альтернативного URL: /api/system/prompt");
-          const altResponse = await axios.get('/api/system/prompt');
+          console.log("Пытаемся получить системный промпт с альтернативного URL: /api/settings/system");
+          const altResponse = await axios.get('/api/settings/system');
           console.log("Ответ с альтернативного URL:", altResponse.data);
 
-          const promptText = altResponse.data.content || "";
+          const promptText = altResponse.data.system_prompt || "";
           setCurrentSystemPrompt(promptText);
           setEditedSystemPrompt(promptText);
           setHasPromptChanges(false);
         } catch (altError) {
           console.error("Ошибка при загрузке с альтернативного URL:", altError);
+
+          // Устанавливаем промпт по умолчанию
+          const defaultPrompt = "You are a helpful assistant that provides information about automotive services.";
+          setCurrentSystemPrompt(defaultPrompt);
+          setEditedSystemPrompt(defaultPrompt);
         }
       } finally {
         setIsLoadingPrompt(false);
@@ -166,14 +176,20 @@ export default function Settings() {
     setIsSavingPrompt(true);
 
     try {
-      console.log("Отправляем запрос на URL:", '/api/settings/system/prompt');
-      console.log("Данные запроса:", { content: editedSystemPrompt });
+        console.log("Отправляем запрос на сохранение системного промпта");
 
-      // Попробуем отправить на первый возможный URL
-      try {
-        console.log("Пытаемся отправить на первый URL: /api/settings/system/prompt");
-        const response = await axios.put('/api/settings/system/prompt', { content: editedSystemPrompt });
-        console.log("Успешный ответ от /api/settings/system/prompt:", response.data);
+        // Создаем правильную структуру данных для запроса
+        const requestData = { content: editedSystemPrompt };
+
+        // Используем только один URL для обновления промпта
+        const response = await axios.put('/api/system/prompt', requestData, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': import.meta.env.VITE_API_KEY
+            }
+        });
+
+        console.log("Успешный ответ при сохранении промпта:", response.data);
 
         // Обновляем текущий промпт после успешного сохранения
         setCurrentSystemPrompt(editedSystemPrompt);
@@ -182,62 +198,38 @@ export default function Settings() {
         // Показываем сообщение об успехе
         setShowSuccessMessage(true);
         setTimeout(() => setShowSuccessMessage(false), 3000);
-
-        return;
-      } catch (firstError) {
-        console.error("Ошибка при отправке на /api/settings/system/prompt:", firstError);
-        console.log("Детали ошибки:", {
-          status: firstError.response?.status,
-          statusText: firstError.response?.statusText,
-          data: firstError.response?.data,
-          headers: firstError.response?.headers
-        });
-
-        // Если первый URL не сработал, пробуем второй
-        console.log("Пытаемся отправить на второй URL: /api/system/prompt");
-        try {
-          const response = await axios.put('/api/system/prompt', { content: editedSystemPrompt });
-          console.log("Успешный ответ от /api/system/prompt:", response.data);
-
-          // Обновляем текущий промпт после успешного сохранения
-          setCurrentSystemPrompt(editedSystemPrompt);
-          setHasPromptChanges(false);
-
-          // Показываем сообщение об успехе
-          setShowSuccessMessage(true);
-          setTimeout(() => setShowSuccessMessage(false), 3000);
-
-          return;
-        } catch (secondError) {
-          console.error("Ошибка при отправке на /api/system/prompt:", secondError);
-          console.log("Детали ошибки:", {
-            status: secondError.response?.status,
-            statusText: secondError.response?.statusText,
-            data: secondError.response?.data,
-            headers: secondError.response?.headers
-          });
-
-          throw secondError; // Пробрасываем ошибку дальше для общей обработки
-        }
-      }
     } catch (error) {
-      console.error("Общая ошибка при обновлении системного промпта:", error);
-      console.log("Детали ошибки:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      });
+        console.error("Ошибка при обновлении системного промпта:", error);
 
-      // Проверим базовый URL и настройки axios
-      console.log("Конфигурация axios:", {
-        baseURL: axios.defaults.baseURL,
-        headers: axios.defaults.headers
-      });
+        // Дополнительная информация для диагностики
+        if (error.response) {
+            console.log("Детали ответа сервера:", {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                data: error.response.data
+            });
+        }
 
-      alert('Failed to update system prompt: ' + error.message);
+        // Вторая попытка
+        try {
+            console.log("Пробуем альтернативный URL для сохранения");
+            const response = await axios.put('/api/settings/system/prompt', { content: editedSystemPrompt });
+            console.log("Успешный ответ с альтернативного URL:", response.data);
+
+            // Обновляем текущий промпт после успешного сохранения
+            setCurrentSystemPrompt(editedSystemPrompt);
+            setHasPromptChanges(false);
+
+            // Показываем сообщение об успехе
+            setShowSuccessMessage(true);
+            setTimeout(() => setShowSuccessMessage(false), 3000);
+        } catch (secondError) {
+            console.error("Вторая попытка сохранения тоже не удалась:", secondError);
+            alert('Не удалось обновить системный промпт: ' + error.message);
+        }
     } finally {
-      setIsSavingPrompt(false);
-      console.log("Завершение процесса сохранения промпта");
+        setIsSavingPrompt(false);
+        console.log("Завершение процесса сохранения промпта");
     }
   };
 
