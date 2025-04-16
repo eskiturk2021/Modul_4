@@ -4,6 +4,28 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import axios from 'axios';
+import userService from './services/userService';
+
+// Инициализация email из URL параметров при загрузке
+userService.initializeUserEmail();
+
+// Интерцептор для добавления email пользователя ко всем запросам
+axios.interceptors.request.use(
+  config => {
+    const userEmail = userService.getUserEmail();
+    if (userEmail) {
+      // Добавляем email пользователя как параметр запроса
+      config.params = config.params || {};
+      config.params.email = userEmail;
+      console.log(`[Axios] Добавлен параметр email='${userEmail}' к запросу:`, config.url);
+    }
+    return config;
+  },
+  error => {
+    console.error('[Axios] Ошибка в запросе:', error);
+    return Promise.reject(error);
+  }
+);
 
 // Интерцептор для логирования всех запросов
 axios.interceptors.request.use(

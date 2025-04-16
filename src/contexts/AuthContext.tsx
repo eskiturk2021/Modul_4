@@ -2,7 +2,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import tokenService from '@/services/tokenService';
-import apiService from '@/services/apiService';  // добавил ссылку
+import apiService from '@/services/apiService';
+import userService from '@/services/userService';
 
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
@@ -28,6 +29,7 @@ type AuthContextType = {
   logout: () => void;
   isAuthenticated: boolean;
   refreshToken: () => Promise<boolean>;
+  userEmail: string | null; // Добавили доступ к email пользователя
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +38,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(tokenService.getToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [userEmail, setUserEmail] = useState<string | null>(userService.getUserEmail());
+
+  // При инициализации проверяем наличие email в URL
+  useEffect(() => {
+    userService.initializeUserEmail();
+    setUserEmail(userService.getUserEmail());
+  }, []);
 
   useEffect(() => {
     // Check if token exists and is valid
@@ -62,6 +71,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 email: decoded.email,
                 role: decoded.role
               });
+
+              // Если у нас есть email пользователя из токена, и нет из URL/localStorage,
+              // сохраняем его в localStorage
+              if (decoded.email && !userService.getUserEmail()) {
+                userService.setUserEmail(decoded.email);
+                setUserEmail(decoded.email);
+              }
             }
           }
         } catch (error) {
@@ -76,17 +92,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     validateToken();
 
-    // Set up a timer to check token expiration periodically
-//  const tokenCheckInterval = setInterval(() => {
-//    if (tokenService.shouldRefreshToken()) {
-//      refreshToken().catch(error => {
-//        console.error('Token refresh failed:', error);
-//      });
-//    }
-//  }, 60000); // Check every minute
-
-//  return () => clearInterval(tokenCheckInterval);
-//}, [token]);
     return () => {
     };
   }, [token]);
@@ -115,6 +120,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           email: decoded.email,
           role: decoded.role
         });
+
+        // Сохраняем email пользователя из токена в localStorage
+        if (decoded.email) {
+          userService.setUserEmail(decoded.email);
+          setUserEmail(decoded.email);
+        }
       }
     } catch (error) {
       console.error('Login failed', error);
@@ -157,6 +168,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                       email: decoded.email,
                       role: decoded.role
                   });
+
+                  // Обновляем email пользователя, если он изменился
+                  if (decoded.email) {
+                      userService.setUserEmail(decoded.email);
+                      setUserEmail(decoded.email);
+                  }
               }
 
               return true;
@@ -192,6 +209,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                        email: decoded.email,
                        role: decoded.role
                    });
+
+                   // Обновляем email пользователя, если он изменился
+                   if (decoded.email) {
+                       userService.setUserEmail(decoded.email);
+                       setUserEmail(decoded.email);
+                   }
                }
 
                return true;
@@ -203,12 +226,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
   };
 
-
-
   const logout = () => {
     tokenService.removeToken();
     setToken(null);
     setUser(null);
+    // Не удаляем email при выходе, чтобы сохранить идентификацию пользователя
+    // userService.clearUserEmail();
+    // setUserEmail(null);
     // Reset axios headers
     delete axios.defaults.headers.common['Authorization'];
   };
@@ -221,7 +245,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout,
     //isAuthenticated: !!user, - логин и пароль на главной странице
     isAuthenticated: true,
-    refreshToken
+    refreshToken,
+    userEmail // Экспортируем email пользователя
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

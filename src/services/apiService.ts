@@ -1,6 +1,7 @@
 // src/services/apiService.ts
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import tokenService from './tokenService';
+import userService from './userService';
 import { useEffect } from 'react';
 
 // Добавляем расширенный интерфейс для AxiosRequestConfig
@@ -33,6 +34,14 @@ api.interceptors.request.use(
     // Always ensure X-API-Key is included in every request
     config.headers = config.headers || {};
     config.headers['X-API-Key'] = API_KEY;
+
+    // Добавляем email пользователя к каждому запросу
+    const userEmail = userService.getUserEmail();
+    if (userEmail) {
+      config.params = config.params || {};
+      config.params.email = userEmail;
+      console.log(`[ApiService] Добавлен параметр email='${userEmail}' к запросу:`, config.url);
+    }
 
     return config;
   },
@@ -83,6 +92,13 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${token}`;
         originalRequest.headers['X-API-Key'] = API_KEY;
 
+        // Добавляем email пользователя при повторном запросе
+        const userEmail = userService.getUserEmail();
+        if (userEmail) {
+          originalRequest.params = originalRequest.params || {};
+          originalRequest.params.email = userEmail;
+        }
+
         // Retry the original request
         return api(originalRequest);
       } catch (refreshError) {
@@ -117,6 +133,13 @@ api.interceptors.response.use(
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${token}`;
             originalRequest.headers['X-API-Key'] = API_KEY;
+
+            // Добавляем email пользователя при повторном запросе
+            const userEmail = userService.getUserEmail();
+            if (userEmail) {
+              originalRequest.params = originalRequest.params || {};
+              originalRequest.params.email = userEmail;
+            }
 
             // Retry the original request
             return api(originalRequest);
