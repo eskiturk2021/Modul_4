@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 import tokenService from '@/services/tokenService';
-import apiService from '@/services/apiService';  // добавил ссылку
+import apiService from '@/services/apiService';
 
 // Get API key from environment variables
 const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
@@ -10,7 +10,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJx
 // Добавляем интерфейс для ответа при обновлении токена
 interface RefreshTokenResponse {
   token: string;
-  // другие поля, если они есть в ответе
+  tenant_id?: string; // Добавили поле tenant_id
 }
 
 type User = {
@@ -18,11 +18,13 @@ type User = {
   username: string;
   email: string;
   role: string;
+  tenant_id?: string; // Добавили поле tenant_id
 };
 
 type AuthContextType = {
   user: User | null;
   token: string | null;
+  tenantId: string | null; // Добавили поле tenantId
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -35,6 +37,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(tokenService.getToken());
+  const [tenantId, setTenantId] = useState<string | null>(null); // Состояние для tenant_id
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -60,8 +63,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 id: decoded.id,
                 username: decoded.username,
                 email: decoded.email,
-                role: decoded.role
+                role: decoded.role,
+                tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
               });
+              setTenantId(decoded.tenant_id || 'default'); // Устанавливаем tenant_id в состояние
             }
           }
         } catch (error) {
@@ -69,6 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           tokenService.removeToken();
           setToken(null);
           setUser(null);
+          setTenantId(null); // Сбрасываем tenant_id
         }
       }
       setIsLoading(false);
@@ -76,17 +82,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     validateToken();
 
-    // Set up a timer to check token expiration periodically
-//  const tokenCheckInterval = setInterval(() => {
-//    if (tokenService.shouldRefreshToken()) {
-//      refreshToken().catch(error => {
-//        console.error('Token refresh failed:', error);
-//      });
-//    }
-//  }, 60000); // Check every minute
-
-//  return () => clearInterval(tokenCheckInterval);
-//}, [token]);
     return () => {
     };
   }, [token]);
@@ -101,10 +96,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           'X-API-Key': API_KEY
         }
       });
-      const { token: newToken } = response.data;
+      const { token: newToken, tenant_id } = response.data;
 
       tokenService.setToken(newToken);
       setToken(newToken);
+      setTenantId(tenant_id || 'default'); // Устанавливаем tenant_id из ответа
 
       // Decode the token to get user information
       const decoded = tokenService.getDecodedToken();
@@ -113,7 +109,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           id: decoded.id,
           username: decoded.username,
           email: decoded.email,
-          role: decoded.role
+          role: decoded.role,
+          tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
         });
       }
     } catch (error) {
@@ -141,9 +138,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               // Call API to refresh token using apiService
               const response = await apiService.post<RefreshTokenResponse>('/api/auth/refresh', { token: currentToken });
 
-              const { token: newToken } = response;
+              const { token: newToken, tenant_id } = response;
               tokenService.setToken(newToken);
               setToken(newToken);
+              setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Обновляем tenant_id
 
               // Update axios headers
               axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
@@ -155,7 +153,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                       id: decoded.id,
                       username: decoded.username,
                       email: decoded.email,
-                      role: decoded.role
+                      role: decoded.role,
+                      tenant_id: decoded.tenant_id // Обновляем tenant_id из токена
                   });
               }
 
@@ -176,9 +175,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                  }
                );
 
-               const { token: newToken } = response.data;
+               const { token: newToken, tenant_id } = response.data;
                tokenService.setToken(newToken);
                setToken(newToken);
+               setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Обновляем tenant_id
 
                // Update axios headers
                axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
@@ -190,7 +190,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                        id: decoded.id,
                        username: decoded.username,
                        email: decoded.email,
-                       role: decoded.role
+                       role: decoded.role,
+                       tenant_id: decoded.tenant_id // Обновляем tenant_id из токена
                    });
                }
 
@@ -203,12 +204,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
   };
 
-
-
   const logout = () => {
     tokenService.removeToken();
     setToken(null);
     setUser(null);
+    setTenantId(null); // Сбрасываем tenant_id
     // Reset axios headers
     delete axios.defaults.headers.common['Authorization'];
   };
@@ -216,6 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = {
     user,
     token,
+    tenantId, // Передаем tenant_id через контекст
     isLoading,
     login,
     logout,

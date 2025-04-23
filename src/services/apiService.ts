@@ -34,6 +34,11 @@ api.interceptors.request.use(
     config.headers = config.headers || {};
     config.headers['X-API-Key'] = API_KEY;
 
+    // Удаляем параметр email из URL-запросов, так как больше не используем его для тенантности
+    if (config.params && config.params.email) {
+      delete config.params.email;
+    }
+
     return config;
   },
   (error) => {

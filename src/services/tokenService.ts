@@ -1,3 +1,4 @@
+// src/services/tokenService.ts
 import jwtDecode, { JwtPayload } from 'jwt-decode';
 
 interface CustomJwtPayload extends JwtPayload {
@@ -5,6 +6,7 @@ interface CustomJwtPayload extends JwtPayload {
   username: string;
   email: string;
   role: string;
+  tenant_id: string; // Добавлено поле tenant_id
 }
 
 class TokenService {
@@ -53,6 +55,13 @@ class TokenService {
       console.error('[TokenService] Ошибка декодирования токена:', token, error);
       return null; // Не удаляем токен сразу, чтобы можно было разобраться
     }
+  }
+
+  // Новый метод для получения tenant_id из токена
+  getTenantId(): string {
+    const decoded = this.getDecodedToken();
+    if (!decoded) return 'default';
+    return decoded.tenant_id || 'default';
   }
 
   isTokenValid(): boolean {
