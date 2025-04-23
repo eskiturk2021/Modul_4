@@ -1,6 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import tokenService from '@/services/tokenService';
 import apiService from '@/services/apiService';
 
@@ -86,40 +86,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [token]);
 
+  // Обновленный метод login в AuthContext.tsx
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      // Get API key from environment variables
-      // Replace with your actual API endpoint
-      const response = await axios.post('/api/auth/login', { email, password }, {
+  setIsLoading(true);
+  try {
+    // Исправлено: изменили поле email на username для соответствия ожиданиям бэкенда
+    const response = await axios.post('/api/auth/login',
+      // Используем URLSearchParams для отправки данных в формате application/x-www-form-urlencoded
+      new URLSearchParams({
+        'username': email, // email используется как username
+        'password': password
+      }).toString(),
+      {
         headers: {
-          'X-API-Key': API_KEY
+          'X-API-Key': API_KEY,
+          'Content-Type': 'application/x-www-form-urlencoded' // Важно для OAuth2
         }
+      } as AxiosRequestConfig
+    );
+
+    const { token: newToken, tenant_id } = response.data;
+
+    tokenService.setToken(newToken);
+    setToken(newToken);
+    setTenantId(tenant_id || 'default'); // Устанавливаем tenant_id из ответа
+
+    // Decode the token to get user information
+    const decoded = tokenService.getDecodedToken();
+    if (decoded) {
+      setUser({
+        id: decoded.id,
+        username: decoded.username,
+        email: decoded.email,
+        role: decoded.role,
+        tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
       });
-      const { token: newToken, tenant_id } = response.data;
-
-      tokenService.setToken(newToken);
-      setToken(newToken);
-      setTenantId(tenant_id || 'default'); // Устанавливаем tenant_id из ответа
-
-      // Decode the token to get user information
-      const decoded = tokenService.getDecodedToken();
-      if (decoded) {
-        setUser({
-          id: decoded.id,
-          username: decoded.username,
-          email: decoded.email,
-          role: decoded.role,
-          tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
-        });
-      }
-    } catch (error) {
-      console.error('Login failed', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Login failed', error);
+    throw error;
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const refreshToken = async (): Promise<boolean> => {
       try {
@@ -163,17 +172,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               console.error('Standard token refresh failed, trying fallback method', error);
 
               // Попытка 2: Использование токена в заголовке
+              // В методе refreshToken
               const response = await axios.post<RefreshTokenResponse>(
                 `${import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app'}/api/auth/refresh`,
-                 {},  // Пустое тело
-                 {
-                   headers: {
-                      'Authorization': `Bearer ${currentToken}`,
-                      'X-API-Key': API_KEY,
-                      'Content-Type': 'application/json'
-                   }
-                 }
-               );
+                {},  // Пустое тело
+                {
+                  headers: {
+                    'Authorization': `Bearer ${currentToken}`,
+                    'X-API-Key': API_KEY,
+                    'Content-Type': 'application/json'
+                  }
+                } as AxiosRequestConfig
+              );
 
                const { token: newToken, tenant_id } = response.data;
                tokenService.setToken(newToken);
