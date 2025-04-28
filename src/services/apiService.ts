@@ -28,6 +28,12 @@ api.interceptors.request.use(
     if (token) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`[API] Добавлен токен авторизации к запросу: ${config.url}`);
+    } else {
+      // Не показываем предупреждение для аутентификационных запросов
+      if (config.url && !config.url.includes('/auth/')) {
+        console.warn(`[API] ⚠️ Запрос к ${config.url} отправляется без токена авторизации!`);
+      }
     }
 
     // Always ensure X-API-Key is included in every request
@@ -55,6 +61,13 @@ api.interceptors.response.use(
     const originalRequest = error.config as CustomAxiosRequestConfig;
     if (!originalRequest) {
       return Promise.reject(error);
+    }
+
+    // Добавляем логирование CORS-ошибок
+    if (!error.response) {
+      console.error('[API] Возможная CORS-ошибка:', error.message);
+      console.error('[API] URL запроса:', originalRequest.url);
+      console.error('[API] Заголовки запроса:', originalRequest.headers);
     }
 
     // If the error is due to an expired token (401) and we haven't already tried to refresh
@@ -151,6 +164,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 // Error parsing helper
 const parseError = (error: any): string => {
   if (error.response?.data?.detail) {
