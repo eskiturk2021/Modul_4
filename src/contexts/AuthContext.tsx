@@ -174,7 +174,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               // Попытка 2: Использование токена в заголовке
               // В методе refreshToken
               const response = await axios.post<RefreshTokenResponse>(
-                `${import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app'}/api/auth/refresh`,
+                `${import.meta.env.VITE_API_URL || 'https://modul301-production.up.railway.app'}/api/auth/refresh`,
                 {},  // Пустое тело
                 {
                   headers: {

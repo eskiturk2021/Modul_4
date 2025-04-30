@@ -115,7 +115,7 @@ api.interceptors.response.use(
 
             // Создаем новый запрос с токеном в заголовке Authorization
             const response = await axios.post(
-              `${import.meta.env.VITE_API_URL || 'https://modul3-production.up.railway.app'}/api/auth/refresh`,
+              `${import.meta.env.VITE_API_URL || 'https://modul301-production.up.railway.app'}/api/auth/refresh`,
               {},  // Пустое тело
               {
                 headers: {
