@@ -53,7 +53,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       return;
     }
 
-    // Cleanup any existing socket
+    // Cleanup any existing socket/
     cleanupSocket();
 
     // Проверка и сброс счетчика попыток, если он слишком большой
