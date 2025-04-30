@@ -21,18 +21,31 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for API calls
 api.interceptors.request.use(
   (config) => {
     const token = tokenService.getToken();
+
+    // Добавим логирование для отладки
+    console.log(`[API] Подготовка запроса к ${config.url}, token:`, !!token);
+
     if (token) {
+      // Обязательно создаем объект headers, если его нет
       config.headers = config.headers || {};
+      // Используем Bearer-схему авторизации
       config.headers.Authorization = `Bearer ${token}`;
       console.log(`[API] Добавлен токен авторизации к запросу: ${config.url}`);
     } else {
       // Не показываем предупреждение для аутентификационных запросов
       if (config.url && !config.url.includes('/auth/')) {
         console.warn(`[API] ⚠️ Запрос к ${config.url} отправляется без токена авторизации!`);
+
+        // Пробуем получить токен повторно, возможно, он был сохранен, но не загружен в переменную
+        const localToken = localStorage.getItem('token');
+        if (localToken) {
+          console.log('[API] Найден токен в localStorage, пробуем использовать его');
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${localToken}`;
+        }
       }
     }
 
@@ -44,6 +57,9 @@ api.interceptors.request.use(
     if (config.params && config.params.email) {
       delete config.params.email;
     }
+
+    // Проверка наличия всех необходимых заголовков
+    console.log('[API] Заголовки запроса:', config.headers);
 
     return config;
   },

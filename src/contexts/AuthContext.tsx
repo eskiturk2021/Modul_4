@@ -88,47 +88,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Обновленный метод login в AuthContext.tsx
   const login = async (email: string, password: string) => {
-  setIsLoading(true);
-  try {
-    // Исправлено: изменили поле email на username для соответствия ожиданиям бэкенда
-    const response = await axios.post('/api/auth/login',
-      // Используем URLSearchParams для отправки данных в формате application/x-www-form-urlencoded
-      new URLSearchParams({
-        'username': email, // email используется как username
-        'password': password
-      }).toString(),
-      {
-        headers: {
-          'X-API-Key': API_KEY,
-          'Content-Type': 'application/x-www-form-urlencoded' // Важно для OAuth2
-        }
-      } as AxiosRequestConfig
-    );
+    setIsLoading(true);
+    try {
+      // Исправлено: изменили поле email на username для соответствия ожиданиям бэкенда
+      const response = await axios.post('/api/auth/login',
+        // Используем URLSearchParams для отправки данных в формате application/x-www-form-urlencoded
+        new URLSearchParams({
+          'username': email, // email используется как username
+          'password': password
+        }).toString(),
+        {
+          headers: {
+            'X-API-Key': API_KEY,
+            'Content-Type': 'application/x-www-form-urlencoded' // Важно для OAuth2
+          }
+        } as AxiosRequestConfig
+      );
 
-    const { token: newToken, tenant_id } = response.data;
+      const { token: newToken, tenant_id } = response.data;
 
-    tokenService.setToken(newToken);
-    setToken(newToken);
-    setTenantId(tenant_id || 'default'); // Устанавливаем tenant_id из ответа
+      tokenService.setToken(newToken);
+      setToken(newToken);
+      setTenantId(tenant_id || 'default'); // Устанавливаем tenant_id из ответа
 
-    // Decode the token to get user information
-    const decoded = tokenService.getDecodedToken();
-    if (decoded) {
-      setUser({
-        id: decoded.id,
-        username: decoded.username,
-        email: decoded.email,
-        role: decoded.role,
-        tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
-      });
+      // Устанавливаем глобальный заголовок для всех последующих запросов
+      // Это дополнение к интерцептору
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      console.log('[Auth] Установлен глобальный заголовок авторизации');
+
+      // Decode the token to get user information
+      const decoded = tokenService.getDecodedToken();
+      if (decoded) {
+        setUser({
+          id: decoded.id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role,
+          tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
+        });
+      }
+    } catch (error) {
+      console.error('Login failed', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Login failed', error);
-    throw error;
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const refreshToken = async (): Promise<boolean> => {
       try {

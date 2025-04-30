@@ -22,8 +22,15 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Use refs for reconnection attempts
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 10;
+  const maxReconnectAttempts = 5; // Уменьшаем с 10 до 5
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialReconnectDelay = 1000; // 1 секунда
+  const maxReconnectDelay = 30000; // 30 секунд
+
+  // Функция для расчета задержки с экспоненциальным увеличением
+  const calculateReconnectDelay = (attempt: number): number => {
+    return Math.min(initialReconnectDelay * Math.pow(2, attempt), maxReconnectDelay);
+  };
 
   // Cleanup function
   const cleanupSocket = useCallback(() => {
@@ -49,9 +56,17 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     // Cleanup any existing socket
     cleanupSocket();
 
-    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'https://modul3-production.up.railway.app';
+    // Проверка и сброс счетчика попыток, если он слишком большой
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      console.log('Достигнуто максимальное количество попыток подключения, сбрасываем счетчик');
+      reconnectAttempts.current = 0;
+    }
+
+    const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'https://modul301-production.up.railway.app';
     // Get API key from environment variables
     const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
+
+    console.log(`[WebSocket] Попытка подключения #${reconnectAttempts.current + 1} к ${wsUrl}`);
 
     // Create a new socket instance
     const socketInstance = io(wsUrl, {
@@ -60,6 +75,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
         apiKey: API_KEY
       },
       reconnectionAttempts: 0,  // We'll handle reconnection manually
+      reconnection: false,      // Disable automatic reconnection
       autoConnect: true,
       timeout: 10000 // 10 second connection timeout
     });
@@ -67,18 +83,18 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     // Set up event listeners
     socketInstance.on('connect', () => {
       setIsConnected(true);
-      console.log('WebSocket connected');
+      console.log('[WebSocket] Connected successfully');
       reconnectAttempts.current = 0; // Reset reconnect attempts on successful connection
     });
 
     socketInstance.on('disconnect', () => {
       setIsConnected(false);
-      console.log('WebSocket disconnected');
+      console.log('[WebSocket] Disconnected');
 
       // Implement exponential backoff for reconnection
       if (reconnectAttempts.current < maxReconnectAttempts) {
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000); // Cap at 30 seconds
-        console.log(`Attempting to reconnect in ${delay / 1000} seconds...`);
+        const delay = calculateReconnectDelay(reconnectAttempts.current);
+        console.log(`[WebSocket] Attempting to reconnect in ${delay / 1000} seconds...`);
 
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -86,10 +102,12 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectAttempts.current += 1;
-          socketInstance.connect();
+          connectWebSocket(); // Вместо socketInstance.connect() вызываем заново всю функцию
         }, delay);
       } else {
-        console.error('Maximum reconnection attempts reached');
+        console.error('[WebSocket] Maximum reconnection attempts reached');
+        // Добавляем возможность ручного переподключения
+        console.log('[WebSocket] WebSocket disabled. Use reconnect() to try again manually');
       }
     });
 
@@ -122,14 +140,19 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     // Handle connection errors
     socketInstance.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
+      console.error('[WebSocket] Connection error:', error);
+
+      // Сообщаем пользователю о проблеме соединения
+      if (reconnectAttempts.current >= maxReconnectAttempts / 2) {
+        console.warn(`[WebSocket] Experiencing connection issues (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
+      }
 
       // Check if the error might be due to an invalid token
       if (error.message === 'jwt expired' || error.message === 'invalid token') {
-        console.log('Token issue detected, attempting to refresh...');
+        console.log('[WebSocket] Token issue detected, attempting to refresh...');
         refreshToken().then(success => {
           if (success) {
-            console.log('Token refreshed, reconnecting socket...');
+            console.log('[WebSocket] Token refreshed, reconnecting socket...');
             socketInstance.disconnect();
             connectWebSocket();
           }
@@ -174,11 +197,25 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Function to force reconnection
   const reconnect = () => {
+    console.log('[WebSocket] Manual reconnection requested');
+
     if (socket) {
       socket.disconnect();
     }
+
+    // Принудительно сбрасываем счетчик попыток
     reconnectAttempts.current = 0;
-    connectWebSocket();
+
+    // Принудительно очищаем таймауты
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    // Устанавливаем небольшую задержку перед новым подключением
+    setTimeout(() => {
+      connectWebSocket();
+    }, 1000);
   };
 
   return (
