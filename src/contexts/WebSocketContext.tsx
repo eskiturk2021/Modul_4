@@ -22,15 +22,11 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Use refs for reconnection attempts
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5; // Уменьшаем с 10 до 5
+  const maxReconnectAttempts = 5; // Уменьшаем с 10 до 5 попыток
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const initialReconnectDelay = 1000; // 1 секунда
-  const maxReconnectDelay = 30000; // 30 секунд
 
-  // Функция для расчета задержки с экспоненциальным увеличением
-  const calculateReconnectDelay = (attempt: number): number => {
-    return Math.min(initialReconnectDelay * Math.pow(2, attempt), maxReconnectDelay);
-  };
+  // Добавляем флаг, указывающий, что WebSocket сервис недоступен
+  const wsServiceUnavailable = useRef(false);
 
   // Cleanup function
   const cleanupSocket = useCallback(() => {
@@ -53,14 +49,14 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       return;
     }
 
-    // Cleanup any existing socket/
-    cleanupSocket();
-
-    // Проверка и сброс счетчика попыток, если он слишком большой
-    if (reconnectAttempts.current >= maxReconnectAttempts) {
-      console.log('Достигнуто максимальное количество попыток подключения, сбрасываем счетчик');
-      reconnectAttempts.current = 0;
+    // Если сервис уже был помечен как недоступный, не пытаемся подключаться
+    if (wsServiceUnavailable.current) {
+      console.log('[WebSocket] Сервис помечен как недоступный, пропускаем подключение');
+      return;
     }
+
+    // Cleanup any existing socket
+    cleanupSocket();
 
     const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'https://modul301-production.up.railway.app';
     // Get API key from environment variables
@@ -85,6 +81,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       setIsConnected(true);
       console.log('[WebSocket] Connected successfully');
       reconnectAttempts.current = 0; // Reset reconnect attempts on successful connection
+      wsServiceUnavailable.current = false; // Сбрасываем флаг недоступности
     });
 
     socketInstance.on('disconnect', () => {
@@ -93,7 +90,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
       // Implement exponential backoff for reconnection
       if (reconnectAttempts.current < maxReconnectAttempts) {
-        const delay = calculateReconnectDelay(reconnectAttempts.current);
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000); // Cap at 30 seconds
         console.log(`[WebSocket] Attempting to reconnect in ${delay / 1000} seconds...`);
 
         if (reconnectTimeoutRef.current) {
@@ -102,11 +99,19 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
         reconnectTimeoutRef.current = setTimeout(() => {
           reconnectAttempts.current += 1;
-          connectWebSocket(); // Вместо socketInstance.connect() вызываем заново всю функцию
+
+          // Проверка на максимальное количество попыток
+          if (reconnectAttempts.current >= maxReconnectAttempts) {
+            console.log('[WebSocket] Достигнуто максимальное количество попыток подключения, отмечаем сервис как недоступный');
+            wsServiceUnavailable.current = true;
+          } else {
+            // Пытаемся подключиться снова
+            connectWebSocket();
+          }
         }, delay);
       } else {
         console.error('[WebSocket] Maximum reconnection attempts reached');
-        // Добавляем возможность ручного переподключения
+        wsServiceUnavailable.current = true; // Помечаем сервис как недоступный
         console.log('[WebSocket] WebSocket disabled. Use reconnect() to try again manually');
       }
     });
@@ -142,9 +147,17 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     socketInstance.on('connect_error', (error) => {
       console.error('[WebSocket] Connection error:', error);
 
-      // Сообщаем пользователю о проблеме соединения
-      if (reconnectAttempts.current >= maxReconnectAttempts / 2) {
-        console.warn(`[WebSocket] Experiencing connection issues (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
+      // Если ошибка 404, значит WebSocket сервис не доступен вообще
+      if (error.message.includes('404') || error.message.includes('not found')) {
+        console.warn('[WebSocket] Сервис не найден (404), отключаем WebSocket');
+        wsServiceUnavailable.current = true;
+        return;
+      }
+
+      // Если ошибка ERR_INSUFFICIENT_RESOURCES, возможно сервер перегружен
+      if (error.message.includes('ERR_INSUFFICIENT_RESOURCES')) {
+        console.warn('[WebSocket] Сервер сообщает о недостатке ресурсов, увеличиваем интервал переподключения');
+        // В этом случае следующая попытка будет с увеличенной задержкой
       }
 
       // Check if the error might be due to an invalid token
@@ -191,7 +204,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     if (socket && isConnected) {
       socket.emit(event, data);
     } else {
-      console.warn('Cannot send message: socket is not connected');
+      console.warn('[WebSocket] Cannot send message: socket is not connected');
     }
   };
 
@@ -199,14 +212,17 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   const reconnect = () => {
     console.log('[WebSocket] Manual reconnection requested');
 
+    // Сбрасываем флаг недоступности сервиса
+    wsServiceUnavailable.current = false;
+
     if (socket) {
       socket.disconnect();
     }
 
-    // Принудительно сбрасываем счетчик попыток
+    // Сбрасываем счетчик попыток
     reconnectAttempts.current = 0;
 
-    // Принудительно очищаем таймауты
+    // Очищаем таймауты
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
