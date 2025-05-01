@@ -31,6 +31,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Cleanup function
   const cleanupSocket = useCallback(() => {
     if (socket) {
+      console.log('[WebSocket] Очистка соединения:', socket.id);
       socket.disconnect();
       socket.off('connect');
       socket.off('disconnect');
@@ -46,6 +47,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Function to establish WebSocket connection
   const connectWebSocket = useCallback(() => {
     if (!isAuthenticated || !token) {
+      console.log('[WebSocket] Пропуск подключения: не аутентифицирован или нет токена');
       return;
     }
 
@@ -63,6 +65,13 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     const API_KEY = import.meta.env.VITE_API_KEY || 'BD7FpLQr9X54zHtN6K8ESvcA3m2YgJxW';
 
     console.log(`[WebSocket] Попытка подключения #${reconnectAttempts.current + 1} к ${wsUrl}`);
+    console.log('[WebSocket] Опции подключения:', {
+      auth: { token: token ? `${token.substring(0, 10)}...` : 'отсутствует', apiKey: API_KEY ? 'настроен' : 'отсутствует' },
+      reconnectionAttempts: 0,
+      reconnection: false,
+      autoConnect: true,
+      timeout: 10000
+    });
 
     // Create a new socket instance
     const socketInstance = io(wsUrl, {
@@ -76,22 +85,24 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       timeout: 10000 // 10 second connection timeout
     });
 
+    console.log('[WebSocket] Создан экземпляр Socket.IO, ожидание подключения...');
+
     // Set up event listeners
     socketInstance.on('connect', () => {
+      console.log('[WebSocket] Успешное подключение! Socket ID:', socketInstance.id);
       setIsConnected(true);
-      console.log('[WebSocket] Connected successfully');
       reconnectAttempts.current = 0; // Reset reconnect attempts on successful connection
       wsServiceUnavailable.current = false; // Сбрасываем флаг недоступности
     });
 
-    socketInstance.on('disconnect', () => {
+    socketInstance.on('disconnect', (reason) => {
+      console.log('[WebSocket] Отключение. Причина:', reason);
       setIsConnected(false);
-      console.log('[WebSocket] Disconnected');
 
       // Implement exponential backoff for reconnection
       if (reconnectAttempts.current < maxReconnectAttempts) {
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000); // Cap at 30 seconds
-        console.log(`[WebSocket] Attempting to reconnect in ${delay / 1000} seconds...`);
+        console.log(`[WebSocket] Попытка переподключения через ${delay / 1000} секунд...`);
 
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -118,34 +129,39 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
     // Add message handler
     socketInstance.on('message', (message) => {
+      console.log('[WebSocket] Получено сообщение:', message);
       setLastMessage(message);
-      console.log('Received message:', message);
     });
 
     // Add specific event handlers
     socketInstance.on('appointment_created', (data) => {
-      console.log('New appointment created:', data);
+      console.log('[WebSocket] Новая запись создана:', data);
       setLastMessage({ type: 'appointment_created', data });
     });
 
     socketInstance.on('appointment_updated', (data) => {
-      console.log('Appointment updated:', data);
+      console.log('[WebSocket] Запись обновлена:', data);
       setLastMessage({ type: 'appointment_updated', data });
     });
 
     socketInstance.on('customer_created', (data) => {
-      console.log('New customer created:', data);
+      console.log('[WebSocket] Новый клиент создан:', data);
       setLastMessage({ type: 'customer_created', data });
     });
 
     socketInstance.on('document_uploaded', (data) => {
-      console.log('Document uploaded:', data);
+      console.log('[WebSocket] Документ загружен:', data);
       setLastMessage({ type: 'document_uploaded', data });
     });
 
     // Handle connection errors
     socketInstance.on('connect_error', (error) => {
-      console.error('[WebSocket] Connection error:', error);
+      console.error('[WebSocket] Ошибка подключения:', error);
+      console.log('[WebSocket] Детали ошибки:', {
+        message: error.message,
+        type: error.type,
+        description: error.description
+      });
 
       // Если ошибка 404, значит WebSocket сервис не доступен вообще
       if (error.message.includes('404') || error.message.includes('not found')) {
@@ -173,6 +189,40 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       }
     });
 
+    // Проверка соединения через ping-pong
+    socketInstance.io.on("ping", () => {
+      console.log("[WebSocket] Получен ping от сервера");
+    });
+
+    socketInstance.io.on("reconnect_attempt", (attempt) => {
+      console.log(`[WebSocket] Попытка переподключения Socket.IO #${attempt}`);
+    });
+
+    socketInstance.io.on("reconnect_error", (error) => {
+      console.error('[WebSocket] Ошибка переподключения Socket.IO:', error);
+    });
+
+    socketInstance.io.on("reconnect_failed", () => {
+      console.error('[WebSocket] Не удалось переподключить Socket.IO');
+    });
+
+    // Добавляем логирование для low-level транспорта
+    socketInstance.io.engine.on("upgrade", (transport) => {
+      console.log(`[WebSocket] Транспорт обновлен до: ${transport.name}`);
+    });
+
+    socketInstance.io.engine.on("open", () => {
+      console.log(`[WebSocket] Engine.IO соединение открыто (transport: ${socketInstance.io.engine.transport.name})`);
+    });
+
+    socketInstance.io.engine.on("close", (reason) => {
+      console.log(`[WebSocket] Engine.IO соединение закрыто: ${reason}`);
+    });
+
+    socketInstance.io.engine.on("packet", (packet) => {
+      console.log(`[WebSocket] Engine.IO пакет: тип=${packet.type}`);
+    });
+
     // Set the socket in state
     setSocket(socketInstance);
 
@@ -188,10 +238,14 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Establish connection when authenticated
   useEffect(() => {
     if (isAuthenticated) {
+      console.log('[WebSocket] Пользователь аутентифицирован, инициируем подключение WebSocket');
       connectWebSocket();
+    } else {
+      console.log('[WebSocket] Пользователь не аутентифицирован, WebSocket не подключается');
     }
 
     return () => {
+      console.log('[WebSocket] Эффект очистки: отключение сокета');
       cleanupSocket();
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -202,20 +256,22 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Function to send messages
   const sendMessage = (event: string, data: any) => {
     if (socket && isConnected) {
+      console.log(`[WebSocket] Отправка сообщения. Событие: ${event}, Данные:`, data);
       socket.emit(event, data);
     } else {
-      console.warn('[WebSocket] Cannot send message: socket is not connected');
+      console.warn('[WebSocket] Невозможно отправить сообщение: сокет не подключен');
     }
   };
 
   // Function to force reconnection
   const reconnect = () => {
-    console.log('[WebSocket] Manual reconnection requested');
+    console.log('[WebSocket] Запрошено ручное переподключение');
 
     // Сбрасываем флаг недоступности сервиса
     wsServiceUnavailable.current = false;
 
     if (socket) {
+      console.log('[WebSocket] Отключение текущего сокета перед переподключением');
       socket.disconnect();
     }
 
@@ -229,6 +285,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
 
     // Устанавливаем небольшую задержку перед новым подключением
+    console.log('[WebSocket] Ожидание 1 секунду перед новым подключением...');
     setTimeout(() => {
       connectWebSocket();
     }, 1000);
