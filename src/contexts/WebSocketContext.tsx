@@ -251,7 +251,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [isAuthenticated, connectWebSocket, cleanupSocket]);
+  }, [isAuthenticated, token]);
 
   // Function to send messages
   const sendMessage = (event: string, data: any) => {
