@@ -24,14 +24,13 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = tokenService.getToken();
+    // Добавляем получение tenant_id из токена
     const tenantId = tokenService.getTenantId();
 
-    console.log(`[API] Детальная проверка запроса к ${config.url}:`);
-    console.log(`[API] - token присутствует:`, !!token);
-    console.log(`[API] - tenant_id из токена:`, tenantId);
-    console.log(`[API] - полные заголовки запроса:`, JSON.stringify(config.headers));
+    // Добавим логирование для отладки
+    console.log(`[API] Подготовка запроса к ${config.url}, token:`, !!token);
+    console.log(`[API] Получен tenant_id:`, tenantId);
 
-    // Проверяем наличие заголовка авторизации
     if (token) {
       // Обязательно создаем объект headers, если его нет
       config.headers = config.headers || {};
@@ -39,12 +38,12 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
       console.log(`[API] Добавлен токен авторизации к запросу: ${config.url}`);
 
-      // Добавляем tenant_id в заголовки, если он существует и не равен 'default'
+      // Добавляем tenant_id в заголовки запроса
       if (tenantId && tenantId !== 'default') {
         config.headers['X-Tenant-ID'] = tenantId;
-        console.log(`[API] Добавлен tenant_id '${tenantId}' в заголовки запроса`);
+        console.log(`[API] Добавлен tenant_id ${tenantId} в заголовки запроса: ${config.url}`);
       } else {
-        console.log(`[API] tenant_id не добавлен в заголовки: '${tenantId}'`);
+        console.log(`[API] Не добавлен tenant_id в заголовки: ${tenantId || 'не определен'}`);
       }
     } else {
       // Не показываем предупреждение для аутентификационных запросов
@@ -58,15 +57,15 @@ api.interceptors.request.use(
           config.headers = config.headers || {};
           config.headers.Authorization = `Bearer ${localToken}`;
 
-          // Также пробуем получить tenant_id из этого токена
+          // Также пробуем получить tenant_id из локального токена
           try {
-            const decoded = jwtDecode(localToken);
-            if (decoded && decoded.tenant_id) {
-              config.headers['X-Tenant-ID'] = decoded.tenant_id;
-              console.log(`[API] Добавлен tenant_id '${decoded.tenant_id}' из localStorage токена`);
+            const decodedToken = tokenService.getDecodedToken();
+            if (decodedToken && decodedToken.tenant_id) {
+              config.headers['X-Tenant-ID'] = decodedToken.tenant_id;
+              console.log(`[API] Добавлен tenant_id ${decodedToken.tenant_id} из локального токена`);
             }
           } catch (error) {
-            console.error('[API] Ошибка при декодировании токена из localStorage:', error);
+            console.error('[API] Ошибка при декодировании локального токена:', error);
           }
         }
       }
@@ -82,12 +81,11 @@ api.interceptors.request.use(
     }
 
     // Проверка наличия всех необходимых заголовков
-    console.log('[API] - итоговые заголовки:', JSON.stringify(config.headers));
+    console.log('[API] Итоговые заголовки запроса:', config.headers);
 
     return config;
   },
   (error) => {
-    console.error('[API] Ошибка в интерцепторе запросов:', error);
     return Promise.reject(error);
   }
 );
