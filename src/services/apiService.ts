@@ -24,9 +24,15 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = tokenService.getToken();
+    // Получаем tenant_id для анализа
+    const tenantId = tokenService.getTenantId();
 
-    // Добавим логирование для отладки
-    console.log(`[API] Подготовка запроса к ${config.url}, token:`, !!token);
+    // Расширенное логирование для отладки
+    console.log(`[API] Подготовка запроса к ${config.url}:`);
+    console.log(`[API] - token присутствует:`, !!token);
+    console.log(`[API] - token первые 10 символов:`, token ? token.substring(0, 10) + '...' : 'null');
+    console.log(`[API] - tenant_id из токена:`, tenantId);
+    console.log(`[API] - исходные заголовки:`, config.headers);
 
     if (token) {
       // Обязательно создаем объект headers, если его нет
@@ -34,6 +40,14 @@ api.interceptors.request.use(
       // Используем Bearer-схему авторизации
       config.headers.Authorization = `Bearer ${token}`;
       console.log(`[API] Добавлен токен авторизации к запросу: ${config.url}`);
+
+      // Добавляем tenant_id в заголовки, если он есть и не равен 'default'
+      if (tenantId && tenantId !== 'default') {
+        config.headers['X-Tenant-ID'] = tenantId;
+        console.log(`[API] Добавлен tenant_id в заголовки: ${tenantId}`);
+      } else {
+        console.log(`[API] Не добавляем tenant_id в заголовки: ${tenantId}`);
+      }
     } else {
       // Не показываем предупреждение для аутентификационных запросов
       if (config.url && !config.url.includes('/auth/')) {
@@ -43,27 +57,46 @@ api.interceptors.request.use(
         const localToken = localStorage.getItem('token');
         if (localToken) {
           console.log('[API] Найден токен в localStorage, пробуем использовать его');
+          console.log('[API] - первые 10 символов найденного токена:', localToken.substring(0, 10) + '...');
+
+          // Пробуем декодировать токен для проверки
+          try {
+            const decodedLocal = jwtDecode(localToken);
+            console.log('[API] - декодированный токен из localStorage:', decodedLocal);
+            console.log('[API] - tenant_id из токена localStorage:', decodedLocal.tenant_id || 'отсутствует');
+          } catch (e) {
+            console.error('[API] - ошибка декодирования токена из localStorage:', e);
+          }
+
           config.headers = config.headers || {};
           config.headers.Authorization = `Bearer ${localToken}`;
+
+          // Пробуем также добавить tenant_id из localStorage токена
+          try {
+            const decodedLocal = jwtDecode(localToken);
+            if (decodedLocal.tenant_id && decodedLocal.tenant_id !== 'default') {
+              config.headers['X-Tenant-ID'] = decodedLocal.tenant_id;
+              console.log(`[API] Добавлен tenant_id из localStorage токена: ${decodedLocal.tenant_id}`);
+            }
+          } catch (e) {
+            console.error('[API] - не удалось добавить tenant_id из localStorage токена');
+          }
         }
       }
     }
 
-    // Always ensure X-API-Key is included in every request
-    config.headers = config.headers || {};
-    config.headers['X-API-Key'] = API_KEY;
-
-    // Удаляем параметр email из URL-запросов, так как больше не используем его для тенантности
-    if (config.params && config.params.email) {
-      delete config.params.email;
-    }
-
-    // Проверка наличия всех необходимых заголовков
-    console.log('[API] Заголовки запроса:', config.headers);
+    // Проверяем наличие всех необходимых заголовков
+    console.log('[API] Итоговые заголовки запроса:', config.headers);
+    console.log('[API] Есть ли tenant_id в заголовках:',
+      config.headers && (config.headers['X-Tenant-ID'] || config.headers['x-tenant-id'])
+        ? 'Да, значение: ' + (config.headers['X-Tenant-ID'] || config.headers['x-tenant-id'])
+        : 'Нет'
+    );
 
     return config;
   },
   (error) => {
+    console.error('[API] Ошибка в интерцепторе запроса:', error);
     return Promise.reject(error);
   }
 );

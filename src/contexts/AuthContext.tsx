@@ -107,6 +107,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const { token: newToken, tenant_id } = response.data;
 
+      console.log('[AuthContext] Получены данные после авторизации:', {
+        token: newToken ? newToken.substring(0, 10) + '...' : 'отсутствует',
+        tenant_id: tenant_id || 'не указан'
+      });
+
       tokenService.setToken(newToken);
       setToken(newToken);
       setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Устанавливаем tenant_id из ответа
@@ -119,12 +124,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Decode the token to get user information
       const decoded = tokenService.getDecodedToken();
       if (decoded) {
+        console.log('[AuthContext] Декодирован токен с данными:', {
+          id: decoded.id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role,
+          tenant_id: decoded.tenant_id || 'отсутствует'
+        });
+
+        // Проверяем наличие tenant_id перед установкой в user
+        if (decoded.tenant_id) {
+          console.log('[AuthContext] Установлен tenant_id из токена:', decoded.tenant_id);
+        } else {
+          console.warn('[AuthContext] ⚠️ В токене отсутствует tenant_id!');
+        }
+
         setUser({
           id: decoded.id,
           username: decoded.username,
           email: decoded.email,
           role: decoded.role,
           tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
+        });
+
+        console.log('[AuthContext] Обновлен объект пользователя:', {
+          id: decoded.id,
+          username: decoded.username,
+          email: decoded.email,
+          role: decoded.role,
+          tenant_id: decoded.tenant_id || 'отсутствует'
         });
       }
     } catch (error) {

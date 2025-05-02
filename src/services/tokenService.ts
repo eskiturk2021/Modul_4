@@ -60,8 +60,10 @@ class TokenService {
   // Новый метод для получения tenant_id из токена
   getTenantId(): string {
     const decoded = this.getDecodedToken();
-    if (!decoded) return 'default';
-    return decoded.tenant_id || 'default';
+    const tenantId = decoded?.tenant_id || 'default';
+    console.log('[TokenService] Получен tenant_id из токена:', tenantId);
+    console.log('[TokenService] Полные данные из токена:', decoded);
+    return tenantId;
   }
 
   isTokenValid(): boolean {
