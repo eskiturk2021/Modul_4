@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       tokenService.setToken(newToken);
       setToken(newToken);
-      setTenantId(tenant_id || 'default'); // Устанавливаем tenant_id из ответа
+      setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Устанавливаем tenant_id из ответа
 
       // Устанавливаем глобальный заголовок для всех последующих запросов
       // Это дополнение к интерцептору
