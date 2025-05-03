@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 
+
 type WebSocketContextType = {
   socket: Socket | null;
   isConnected: boolean;
@@ -18,7 +19,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<any | null>(null);
-  const { token, isAuthenticated, refreshToken } = useAuth();
+  const { token, isAuthenticated, refreshToken, tenantId } = useAuth();
 
   // Use refs for reconnection attempts
   const reconnectAttempts = useRef(0);
@@ -77,7 +78,8 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
     const socketInstance = io(wsUrl, {
       auth: {
         token,
-        apiKey: API_KEY
+        apiKey: API_KEY,
+        tenant_id: tenantId
       },
       reconnectionAttempts: 0,  // We'll handle reconnection manually
       reconnection: false,      // Disable automatic reconnection
