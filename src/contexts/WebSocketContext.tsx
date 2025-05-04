@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
-
+import tokenService from '../services/tokenService'; // путь подстрой под свою структуру
 
 
 type WebSocketContextType = {
@@ -79,7 +79,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
       auth: {
         token,
         apiKey: API_KEY,
-        tenant_id: tenantId
+        tenant_id: tokenService.getTenantId()
       },
       reconnectionAttempts: 0,  // We'll handle reconnection manually
       reconnection: false,      // Disable automatic reconnection
@@ -239,21 +239,23 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Establish connection when authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('[WebSocket] Пользователь аутентифицирован, инициируем подключение WebSocket');
-      connectWebSocket();
-    } else {
-      console.log('[WebSocket] Пользователь не аутентифицирован, WebSocket не подключается');
-    }
+  const tenantId = tokenService.getTenantId(); // Явно получаем tenant_id
 
-    return () => {
-      console.log('[WebSocket] Эффект очистки: отключение сокета');
-      cleanupSocket();
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, [isAuthenticated, token]);
+  if (isAuthenticated && tenantId && tenantId !== 'default') {
+    console.log('[WebSocket] Пользователь аутентифицирован, инициируем подключение WebSocket');
+    connectWebSocket();
+  } else {
+    console.log('[WebSocket] WebSocket не подключается — isAuthenticated:', isAuthenticated, 'tenantId:', tenantId);
+  }
+
+  return () => {
+    console.log('[WebSocket] Эффект очистки: отключение сокета');
+    cleanupSocket();
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+  };
+}, [isAuthenticated, token]);
 
   // Function to send messages
   const sendMessage = (event: string, data: any) => {

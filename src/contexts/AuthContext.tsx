@@ -113,6 +113,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       tokenService.setToken(newToken);
+      tokenService.setTenantId(tenant_id);
+
       setToken(newToken);
       setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Устанавливаем tenant_id из ответа
 

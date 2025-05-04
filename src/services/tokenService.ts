@@ -21,6 +21,16 @@ class TokenService {
     }
   }
 
+  setTenantId(tenantId: string | null): void {
+    if (tenantId) {
+      localStorage.setItem('tenant_id', tenantId);
+      console.log('[TokenService] Сохранён tenant_id:', tenantId);
+    } else {
+      localStorage.removeItem('tenant_id');
+      console.log('[TokenService] tenant_id удалён');
+    }
+  }
+
   setToken(token: string): void {
     try {
       localStorage.setItem('token', token);
