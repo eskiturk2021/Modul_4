@@ -40,7 +40,7 @@ api.interceptors.request.use(
 
       // Добавляем tenant_id в заголовки запроса
       if (tenantId && tenantId !== 'default') {
-        config.headers['X-Tenant-ID'] = tenantId;
+        config.headers['x-tenant-id'] = tenantId;
         console.log(`[API] Добавлен tenant_id ${tenantId} в заголовки запроса: ${config.url}`);
       } else {
         console.log(`[API] Не добавлен tenant_id в заголовки: ${tenantId || 'не определен'}`);
