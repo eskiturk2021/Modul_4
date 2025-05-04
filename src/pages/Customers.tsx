@@ -1,7 +1,7 @@
 // src/pages/Customers.tsx
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/services/apiService';
 import { Link } from 'react-router-dom';
 import { Search, Plus, RefreshCw, Filter, Download } from 'lucide-react';
 
@@ -49,7 +49,7 @@ export default function Customers() {
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get('/api/customers', {
+      const response = await api.get('/api/customers', {
         params: {
           page: pagination.currentPage,
           status: status || undefined,
@@ -73,7 +73,7 @@ export default function Customers() {
 
   const handleExport = async () => {
     try {
-      const response = await axios.get('/api/customers/export', {
+      const response = await api.get('/api/customers/export', {
         params: {
           format: 'csv',
         },
