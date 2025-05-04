@@ -39,11 +39,16 @@ api.interceptors.request.use(
       console.log(`[API] Добавлен токен авторизации к запросу: ${config.url}`);
 
       // Добавляем tenant_id в заголовки запроса
-      if (tenantId && tenantId !== 'default') {
-        config.headers['x-tenant-id'] = tenantId;
-        console.log(`[API] Добавлен tenant_id ${tenantId} в заголовки запроса: ${config.url}`);
+      if (tenantId) {
+          // Добавляем заголовок в обоих вариантах написания для совместимости
+          config.headers['X-Tenant-ID'] = tenantId;
+          config.headers['x-tenant-id'] = tenantId;
+          console.log(`[API] Добавлен tenant_id ${tenantId} в заголовки запроса: ${config.url}`);
       } else {
-        console.log(`[API] Не добавлен tenant_id в заголовки: ${tenantId || 'не определен'}`);
+          // В случае отсутствия tenant_id, используем 'default'
+          config.headers['X-Tenant-ID'] = 'default';
+          config.headers['x-tenant-id'] = 'default';
+          console.warn(`[API] Использован tenant_id 'default' для запроса: ${config.url}`);
       }
     } else {
       // Не показываем предупреждение для аутентификационных запросов
