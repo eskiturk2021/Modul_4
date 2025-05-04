@@ -57,7 +57,7 @@ export default function Customers() {
         },
       });
 
-      setCustomers(response.data.customers);
+      setCustomers(response.data);
       setPagination(response.data.pagination);
     } catch (error) {
       console.error('Error fetching customers:', error);
