@@ -6,6 +6,7 @@ import {
   UserPlus,
   RefreshCw
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { StatCard } from '@/components/dashboard/StatCard';
 import { AppointmentList } from '@/components/dashboard/AppointmentList';
@@ -67,17 +68,26 @@ export default function Dashboard() {
   const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
   const [servicesData, setServicesData] = useState<ServiceData[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const { tenantId } = useAuth(); // Получаем tenant_id из контекста авторизации
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        // Fetch statistics
-        const statsResponse = await axios.get('/api/dashboard/stats');
+        console.log('[DASHBOARD] Начало загрузки данных с tenant_id:', tenantId);
+
+        // Добавляем tenant_id в параметры запроса к статистике
+        const statsResponse = await axios.get('/api/dashboard/stats', {
+          params: { tenant_id: tenantId }
+        });
+        console.log('[DASHBOARD] Получены данные статистики:', statsResponse.data);
         setStats(statsResponse.data);
 
-        // Fetch upcoming appointments
-        const appointmentsResponse = await axios.get('/api/appointments/upcoming');
+        // Добавляем tenant_id в параметры запроса к назначенным встречам
+        const appointmentsResponse = await axios.get('/api/appointments/upcoming', {
+          params: { tenant_id: tenantId }
+        });
+        console.log('[DASHBOARD] Получены данные назначений:', appointmentsResponse.data);
         setAppointments(appointmentsResponse.data);
 
         // Mock revenue data - replace with actual API call
@@ -101,9 +111,14 @@ export default function Dashboard() {
         ];
         setServicesData(mockServicesData);
 
-        // Fetch recent activities
-        const activitiesResponse = await axios.get('/api/activity/recent');
+        // Добавляем tenant_id в параметры запроса к активностям
+        const activitiesResponse = await axios.get('/api/activity/recent', {
+          params: { tenant_id: tenantId }
+        });
+        console.log('[DASHBOARD] Получены данные активностей:', activitiesResponse.data);
         setActivities(activitiesResponse.data);
+
+        console.log('[DASHBOARD] Все данные успешно загружены');
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -111,8 +126,12 @@ export default function Dashboard() {
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (tenantId) {
+      fetchDashboardData();
+    } else {
+      console.warn('[DASHBOARD] Невозможно загрузить данные: tenant_id отсутствует');
+    }
+  }, [tenantId]); // Добавляем tenantId в зависимости, чтобы перезагружать данные при его изменении
 
   if (isLoading) {
     return (

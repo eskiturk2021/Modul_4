@@ -24,10 +24,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = tokenService.getToken();
-    // Добавляем получение tenant_id из токена
     const tenantId = tokenService.getTenantId();
 
-    // Добавим логирование для отладки
     console.log(`[API] Подготовка запроса к ${config.url}, token:`, !!token);
     console.log(`[API] Получен tenant_id:`, tenantId);
     console.log(`[API] Подготовка запроса к ${config.url}, token: ${token ? 'присутствует' : 'отсутствует'}, tenant_id: ${tenantId || 'отсутствует'}`);
@@ -39,17 +37,31 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
       console.log(`[API] Добавлен токен авторизации к запросу: ${config.url}`);
 
-      // Добавляем tenant_id в заголовки запроса
-      if (tenantId) {
-          // Добавляем заголовок в обоих вариантах написания для совместимости
-          config.headers['X-Tenant-ID'] = tenantId;
-          config.headers['x-tenant-id'] = tenantId;
-          console.log(`[API] Добавлен tenant_id ${tenantId} в заголовки запроса: ${config.url}`);
+      // Получаем и устанавливаем заголовки tenant_id
+      const tenantHeaders = tokenService.getTenantHeaders();
+      if (Object.keys(tenantHeaders).length > 0) {
+        Object.entries(tenantHeaders).forEach(([key, value]) => {
+          config.headers[key] = value;
+        });
+        console.log(`[API] Добавлены заголовки tenant_id в запрос: ${config.url}`, tenantHeaders);
+      } else if (tenantId) {
+        config.headers['X-Tenant-ID'] = tenantId;
+        config.headers['x-tenant-id'] = tenantId;
+        console.log(`[API] Добавлен tenant_id ${tenantId} в заголовки запроса: ${config.url}`);
       } else {
-          // В случае отсутствия tenant_id, используем 'default'
-          config.headers['X-Tenant-ID'] = 'default';
-          config.headers['x-tenant-id'] = 'default';
-          console.warn(`[API] Использован tenant_id 'default' для запроса: ${config.url}`);
+        config.headers['X-Tenant-ID'] = 'default';
+        config.headers['x-tenant-id'] = 'default';
+        console.warn(`[API] Использован tenant_id 'default' для запроса: ${config.url}`);
+      }
+
+      // НОВЫЙ КОД: Добавляем tenant_id в параметры запроса
+      if (!config.params) {
+        config.params = {};
+      }
+
+      if (tenantId) {
+        config.params.tenant_id = tenantId;
+        console.log(`[API] Добавлен tenant_id ${tenantId} в параметры запроса: ${config.url}`);
       }
     } else {
       // Не показываем предупреждение для аутентификационных запросов
@@ -68,7 +80,15 @@ api.interceptors.request.use(
             const decodedToken = tokenService.getDecodedToken();
             if (decodedToken && decodedToken.tenant_id) {
               config.headers['X-Tenant-ID'] = decodedToken.tenant_id;
+              config.headers['x-tenant-id'] = decodedToken.tenant_id;
               console.log(`[API] Добавлен tenant_id ${decodedToken.tenant_id} из локального токена`);
+
+              // Добавляем tenant_id в параметры запроса
+              if (!config.params) {
+                config.params = {};
+              }
+              config.params.tenant_id = decodedToken.tenant_id;
+              console.log(`[API] Добавлен tenant_id ${decodedToken.tenant_id} в параметры запроса`);
             }
           } catch (error) {
             console.error('[API] Ошибка при декодировании локального токена:', error);
@@ -81,13 +101,9 @@ api.interceptors.request.use(
     config.headers = config.headers || {};
     config.headers['X-API-Key'] = API_KEY;
 
-    // Удаляем параметр email из URL-запросов, так как больше не используем его для тенантности
-    if (config.params && config.params.email) {
-      delete config.params.email;
-    }
-
     // Проверка наличия всех необходимых заголовков
     console.log('[API] Итоговые заголовки запроса:', config.headers);
+    console.log('[API] Итоговые параметры запроса:', config.params);
 
     return config;
   },

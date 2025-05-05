@@ -75,6 +75,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 axios.defaults.headers.common[key] = value;
               });
               console.log('[AUTH] Установлены глобальные заголовки tenant_id при валидации токена:', tenantHeaders);
+
+              // Устанавливаем глобальные параметры запросов
+              if (!axios.defaults.params) {
+                axios.defaults.params = {};
+              }
+              axios.defaults.params.tenant_id = decoded.tenant_id || 'default';
+              console.log('[AUTH] Добавлен глобальный параметр tenant_id в URL-запросы при валидации:', decoded.tenant_id || 'default');
             }
           }
         } catch (error) {
@@ -162,6 +169,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         axios.defaults.headers.common[key] = value;
       });
       console.log('[AUTH] Установлены глобальные заголовки tenant_id:', tenantHeaders);
+
+      // Устанавливаем глобальные параметры запросов
+      if (!axios.defaults.params) {
+        axios.defaults.params = {};
+      }
+      axios.defaults.params.tenant_id = effectiveTenantId;
+      console.log('[AUTH] Добавлен глобальный параметр tenant_id в URL-запросы:', effectiveTenantId);
 
       // 4. Декодируем токен для получения данных пользователя
       const decoded = tokenService.getDecodedToken();
@@ -252,6 +266,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               });
               console.log('[AUTH] Обновлены глобальные заголовки tenant_id:', tenantHeaders);
 
+              // Устанавливаем глобальные параметры запросов
+              if (!axios.defaults.params) {
+                axios.defaults.params = {};
+              }
+              axios.defaults.params.tenant_id = effectiveTenantId;
+              console.log('[AUTH] Добавлен глобальный параметр tenant_id в URL-запросы:', effectiveTenantId);
+
               // Обновляем данные пользователя
               const decoded = tokenService.getDecodedToken();
               if (decoded) {
@@ -310,6 +331,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                });
                console.log('[AUTH] Обновлены глобальные заголовки tenant_id (альтернативный метод):', tenantHeaders);
 
+               // Устанавливаем глобальные параметры запросов
+               if (!axios.defaults.params) {
+                 axios.defaults.params = {};
+               }
+               axios.defaults.params.tenant_id = effectiveTenantId;
+               console.log('[AUTH] Добавлен глобальный параметр tenant_id в URL-запросы:', effectiveTenantId);
+
                // Обновляем данные пользователя
                const decoded = tokenService.getDecodedToken();
                if (decoded) {
@@ -343,6 +371,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     delete axios.defaults.headers.common['X-Tenant-ID'];
     delete axios.defaults.headers.common['x-tenant-id'];
     console.log('[AUTH] Сброшены все заголовки авторизации и tenant_id');
+
+    // Сбрасываем глобальные параметры
+    if (axios.defaults.params) {
+      delete axios.defaults.params.tenant_id;
+    }
+    console.log('[AUTH] Сброшен глобальный параметр tenant_id в URL-запросах');
   };
 
   const value = {
