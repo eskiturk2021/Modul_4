@@ -13,7 +13,7 @@ class TokenService {
   getToken(): string | null {
     try {
       const token = localStorage.getItem('token');
-      console.log('[TokenService] Получен токен:', token);
+      console.log('[TokenService] Получен токен:', token ? `${token.substring(0, 10)}...` : 'отсутствует');
       return token;
     } catch (error) {
       console.error('[TokenService] Ошибка доступа к localStorage:', error);
@@ -34,7 +34,7 @@ class TokenService {
   setToken(token: string): void {
     try {
       localStorage.setItem('token', token);
-      console.log('[TokenService] Токен сохранен:', token);
+      console.log('[TokenService] Токен сохранен:', token ? `${token.substring(0, 10)}...` : 'отсутствует');
     } catch (error) {
       console.error('[TokenService] Ошибка записи в localStorage:', error);
     }
@@ -70,9 +70,17 @@ class TokenService {
   // Новый метод для получения tenant_id из токена
   getTenantId(): string {
     const decoded = this.getDecodedToken();
-    const tenantId = decoded?.tenant_id || 'default';
-    console.log('[TokenService] Получен tenant_id из токена:', tenantId);
-    console.log('[TokenService] Полные данные из токена:', decoded);
+    const storedTenantId = localStorage.getItem('tenant_id');
+    const tenantId = decoded?.tenant_id || storedTenantId || 'default';
+    console.log('[TokenService] Получен tenant_id:', tenantId);
+    console.log('[TokenService] Источники tenant_id:', {
+      'из токена': decoded?.tenant_id || 'отсутствует',
+      'из localStorage': storedTenantId || 'отсутствует'
+    });
+
+    if (tenantId === 'default') {
+      console.warn('[TokenService] Используется tenant_id по умолчанию! Это может вызвать проблемы.');
+    }
     return tenantId;
   }
 

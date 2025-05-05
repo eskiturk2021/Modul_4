@@ -30,6 +30,7 @@ api.interceptors.request.use(
     // Добавим логирование для отладки
     console.log(`[API] Подготовка запроса к ${config.url}, token:`, !!token);
     console.log(`[API] Получен tenant_id:`, tenantId);
+    console.log(`[API] Подготовка запроса к ${config.url}, token: ${token ? 'присутствует' : 'отсутствует'}, tenant_id: ${tenantId || 'отсутствует'}`);
 
     if (token) {
       // Обязательно создаем объект headers, если его нет

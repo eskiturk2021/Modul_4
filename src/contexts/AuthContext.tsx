@@ -67,6 +67,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 tenant_id: decoded.tenant_id // Устанавливаем tenant_id из токена
               });
               setTenantId(decoded.tenant_id || 'default'); // Устанавливаем tenant_id в состояние
+              console.log(`[AUTH] Установлен tenant_id из токена при валидации: ${decoded.tenant_id || 'default'}`);
             }
           }
         } catch (error) {
@@ -88,6 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Обновленный метод login в AuthContext.tsx
   const login = async (email: string, password: string) => {
+    console.log("[AUTH] Начало процесса логина");
     setIsLoading(true);
     try {
       // Исправлено: изменили поле email на username для соответствия ожиданиям бэкенда
@@ -111,17 +113,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         token: newToken ? newToken.substring(0, 10) + '...' : 'отсутствует',
         tenant_id: tenant_id || 'не указан'
       });
+      console.log(`[AUTH] Получен ответ логина: token=${newToken ? 'присутствует' : 'отсутствует'}, tenant_id=${tenant_id || 'отсутствует'}`);
 
       tokenService.setToken(newToken);
       tokenService.setTenantId(tenant_id);
 
+      console.log(`[AUTH] Токен и tenant_id сохранены в tokenService`);
+
       setToken(newToken);
       setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Устанавливаем tenant_id из ответа
+
+      console.log(`[AUTH] Состояние обновлено: token=${newToken ? 'присутствует' : 'отсутствует'}, tenant_id=${tenant_id || 'отсутствует'}`);
 
       // Устанавливаем глобальный заголовок для всех последующих запросов
       // Это дополнение к интерцептору
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-      console.log('[Auth] Установлен глобальный заголовок авторизации');
+      console.log('[AUTH] Установлен глобальный заголовок авторизации');
+
+      // Добавляем явную установку заголовка X-Tenant-ID
+      if (tenant_id) {
+        axios.defaults.headers.common['X-Tenant-ID'] = tenant_id;
+        axios.defaults.headers.common['x-tenant-id'] = tenant_id;
+        console.log('[AUTH] Установлен глобальный заголовок X-Tenant-ID:', tenant_id);
+      }
 
       // Decode the token to get user information
       const decoded = tokenService.getDecodedToken();
@@ -157,6 +171,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           tenant_id: decoded.tenant_id || 'отсутствует'
         });
       }
+
+      console.log('[AUTH] Процесс логина завершен успешно');
     } catch (error) {
       console.error('Login failed', error);
       throw error;
