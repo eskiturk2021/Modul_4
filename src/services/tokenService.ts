@@ -67,7 +67,7 @@ class TokenService {
     }
   }
 
-  // Новый метод для получения tenant_id из токена
+  // Обновленный метод для получения tenant_id из всех источников
   getTenantId(): string {
     const decoded = this.getDecodedToken();
     const storedTenantId = localStorage.getItem('tenant_id');
@@ -82,6 +82,23 @@ class TokenService {
       console.warn('[TokenService] Используется tenant_id по умолчанию! Это может вызвать проблемы.');
     }
     return tenantId;
+  }
+
+  // Новый метод для получения заголовков tenant_id
+  getTenantHeaders(): Record<string, string> {
+    const tenantId = this.getTenantId();
+    if (!tenantId || tenantId === 'default') {
+      console.warn('[TokenService] Не найден надежный tenant_id для заголовков!');
+      return {
+        'X-Tenant-ID': 'default',
+        'x-tenant-id': 'default'
+      };
+    }
+
+    return {
+      'X-Tenant-ID': tenantId,
+      'x-tenant-id': tenantId
+    };
   }
 
   isTokenValid(): boolean {

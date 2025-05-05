@@ -68,6 +68,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               });
               setTenantId(decoded.tenant_id || 'default'); // Устанавливаем tenant_id в состояние
               console.log(`[AUTH] Установлен tenant_id из токена при валидации: ${decoded.tenant_id || 'default'}`);
+
+              // Устанавливаем заголовки tenant_id
+              const tenantHeaders = tokenService.getTenantHeaders();
+              Object.entries(tenantHeaders).forEach(([key, value]) => {
+                axios.defaults.headers.common[key] = value;
+              });
+              console.log('[AUTH] Установлены глобальные заголовки tenant_id при валидации токена:', tenantHeaders);
             }
           }
         } catch (error) {
@@ -115,29 +122,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
       console.log(`[AUTH] Получен ответ логина: token=${newToken ? 'присутствует' : 'отсутствует'}, tenant_id=${tenant_id || 'отсутствует'}`);
 
+      // 1. Сохраняем токен
       tokenService.setToken(newToken);
-      tokenService.setTenantId(tenant_id);
+
+      // Сохраняем tenant_id из ответа, если он есть
+      if (tenant_id) {
+        tokenService.setTenantId(tenant_id);
+        console.log(`[AUTH] Сохранен tenant_id из ответа API: ${tenant_id}`);
+      } else {
+        // Если tenant_id отсутствует в ответе, попробуем получить его из токена
+        const decoded = tokenService.getDecodedToken();
+        if (decoded && decoded.tenant_id) {
+          tokenService.setTenantId(decoded.tenant_id);
+          console.log(`[AUTH] Сохранен tenant_id из декодированного токена: ${decoded.tenant_id}`);
+        } else {
+          console.warn('[AUTH] ⚠️ Не удалось получить tenant_id ни из ответа, ни из токена!');
+        }
+      }
 
       console.log(`[AUTH] Токен и tenant_id сохранены в tokenService`);
 
+      // 2. Обновляем состояние
       setToken(newToken);
-      setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Устанавливаем tenant_id из ответа
 
-      console.log(`[AUTH] Состояние обновлено: token=${newToken ? 'присутствует' : 'отсутствует'}, tenant_id=${tenant_id || 'отсутствует'}`);
+      // Получаем итоговый tenant_id через tokenService для единообразия
+      const effectiveTenantId = tokenService.getTenantId();
+      setTenantId(effectiveTenantId);
 
-      // Устанавливаем глобальный заголовок для всех последующих запросов
-      // Это дополнение к интерцептору
+      console.log(`[AUTH] Состояние обновлено: token=${newToken ? 'присутствует' : 'отсутствует'}, tenant_id=${effectiveTenantId || 'отсутствует'}`);
+
+      // 3. Устанавливаем глобальные заголовки
+      // Заголовок авторизации
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       console.log('[AUTH] Установлен глобальный заголовок авторизации');
 
-      // Добавляем явную установку заголовка X-Tenant-ID
-      if (tenant_id) {
-        axios.defaults.headers.common['X-Tenant-ID'] = tenant_id;
-        axios.defaults.headers.common['x-tenant-id'] = tenant_id;
-        console.log('[AUTH] Установлен глобальный заголовок X-Tenant-ID:', tenant_id);
-      }
+      // Получаем и устанавливаем заголовки tenant_id
+      const tenantHeaders = tokenService.getTenantHeaders();
+      Object.entries(tenantHeaders).forEach(([key, value]) => {
+        axios.defaults.headers.common[key] = value;
+      });
+      console.log('[AUTH] Установлены глобальные заголовки tenant_id:', tenantHeaders);
 
-      // Decode the token to get user information
+      // 4. Декодируем токен для получения данных пользователя
       const decoded = tokenService.getDecodedToken();
       if (decoded) {
         console.log('[AuthContext] Декодирован токен с данными:', {
@@ -199,14 +225,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               const response = await apiService.post<RefreshTokenResponse>('/api/auth/refresh', { token: currentToken });
 
               const { token: newToken, tenant_id } = response;
-              tokenService.setToken(newToken);
-              setToken(newToken);
-              setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Обновляем tenant_id
 
-              // Update axios headers
+              // Сохраняем новый токен
+              tokenService.setToken(newToken);
+
+              // Сохраняем tenant_id из ответа, если он есть
+              if (tenant_id) {
+                tokenService.setTenantId(tenant_id);
+                console.log(`[AUTH] Сохранен tenant_id из ответа обновления токена: ${tenant_id}`);
+              }
+
+              // Получаем итоговый tenant_id
+              const effectiveTenantId = tokenService.getTenantId();
+
+              // Обновляем состояние
+              setToken(newToken);
+              setTenantId(effectiveTenantId);
+
+              // Обновляем заголовки
               axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
-              // Update user from new token
+              // Получаем и устанавливаем заголовки tenant_id
+              const tenantHeaders = tokenService.getTenantHeaders();
+              Object.entries(tenantHeaders).forEach(([key, value]) => {
+                axios.defaults.headers.common[key] = value;
+              });
+              console.log('[AUTH] Обновлены глобальные заголовки tenant_id:', tenantHeaders);
+
+              // Обновляем данные пользователя
               const decoded = tokenService.getDecodedToken();
               if (decoded) {
                   setUser({
@@ -237,14 +283,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               );
 
                const { token: newToken, tenant_id } = response.data;
-               tokenService.setToken(newToken);
-               setToken(newToken);
-               setTenantId(tenant_id || tokenService.getTenantId() || 'default'); // Обновляем tenant_id
 
-               // Update axios headers
+               // Сохраняем новый токен
+               tokenService.setToken(newToken);
+
+               // Сохраняем tenant_id из ответа, если он есть
+               if (tenant_id) {
+                 tokenService.setTenantId(tenant_id);
+                 console.log(`[AUTH] Сохранен tenant_id из ответа альтернативного обновления токена: ${tenant_id}`);
+               }
+
+               // Получаем итоговый tenant_id
+               const effectiveTenantId = tokenService.getTenantId();
+
+               // Обновляем состояние
+               setToken(newToken);
+               setTenantId(effectiveTenantId);
+
+               // Обновляем заголовки
                axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
-               // Update user from new token
+               // Получаем и устанавливаем заголовки tenant_id
+               const tenantHeaders = tokenService.getTenantHeaders();
+               Object.entries(tenantHeaders).forEach(([key, value]) => {
+                 axios.defaults.headers.common[key] = value;
+               });
+               console.log('[AUTH] Обновлены глобальные заголовки tenant_id (альтернативный метод):', tenantHeaders);
+
+               // Обновляем данные пользователя
                const decoded = tokenService.getDecodedToken();
                if (decoded) {
                    setUser({
@@ -267,11 +333,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = () => {
     tokenService.removeToken();
+    tokenService.setTenantId(null); // Очищаем tenant_id в localStorage
     setToken(null);
     setUser(null);
     setTenantId(null); // Сбрасываем tenant_id
-    // Reset axios headers
+
+    // Сбрасываем заголовки
     delete axios.defaults.headers.common['Authorization'];
+    delete axios.defaults.headers.common['X-Tenant-ID'];
+    delete axios.defaults.headers.common['x-tenant-id'];
+    console.log('[AUTH] Сброшены все заголовки авторизации и tenant_id');
   };
 
   const value = {
