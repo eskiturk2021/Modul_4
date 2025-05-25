@@ -353,7 +353,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     logout,
     //isAuthenticated: !!user, - логин и пароль на главной странице
-    isAuthenticated: true,
+    isAuthenticated: !!user && !!token,
     refreshToken
   };
 
