@@ -1,12 +1,12 @@
 // src/pages/Appointments.tsx
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
+import apiService from '@/services/apiService';
 
 interface Appointment {
   id: string;
@@ -22,6 +22,7 @@ interface Appointment {
   appointment_date: string;
   appointment_time: string;
   status: string;
+  estimated_cost?: number;
 }
 
 interface CalendarAppointment {
@@ -40,6 +41,7 @@ export default function Appointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [calendarAppointments, setCalendarAppointments] = useState<CalendarAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -53,15 +55,34 @@ export default function Appointments() {
 
   const fetchAppointmentsList = async () => {
     setIsLoading(true);
+    setError(null);
+
     try {
-      const response = await axios.get('/api/appointments/upcoming', {
-        params: {
-          status: status || undefined,
-        },
+      console.log('📅 Загрузка списка записей...');
+
+      const params: Record<string, string> = {};
+      if (status) {
+        params.status = status;
+      }
+
+      const response = await apiService.get<Appointment[]>('/api/appointments/upcoming', {
+        params
       });
-      setAppointments(response.data);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
+
+      console.log('✅ Записи загружены:', response);
+
+      // Проверяем структуру ответа
+      const appointmentsData = Array.isArray(response) ? response : (response as any)?.data || [];
+
+      setAppointments(appointmentsData);
+      console.log(`📊 Установлено ${appointmentsData.length} записей`);
+
+    } catch (error: any) {
+      console.error('❌ Ошибка при загрузке записей:', error);
+      setError(error?.message || 'Не удалось загрузить записи');
+
+      // Fallback к пустому массиву
+      setAppointments([]);
     } finally {
       setIsLoading(false);
     }
@@ -69,15 +90,32 @@ export default function Appointments() {
 
   const fetchCalendarAppointments = async () => {
     setIsLoading(true);
+    setError(null);
+
     try {
+      console.log('📅 Загрузка календарных записей...');
+
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
-      const response = await axios.get('/api/appointments/calendar', {
-        params: { year, month },
+
+      const response = await apiService.get<CalendarAppointment[]>('/api/appointments/calendar', {
+        params: { year, month }
       });
-      setCalendarAppointments(response.data);
-    } catch (error) {
-      console.error('Error fetching calendar appointments:', error);
+
+      console.log('✅ Календарные записи загружены:', response);
+
+      // Проверяем структуру ответа
+      const calendarData = Array.isArray(response) ? response : (response as any)?.data || [];
+
+      setCalendarAppointments(calendarData);
+      console.log(`📊 Установлено ${calendarData.length} календарных записей`);
+
+    } catch (error: any) {
+      console.error('❌ Ошибка при загрузке календарных записей:', error);
+      setError(error?.message || 'Не удалось загрузить календарь');
+
+      // Fallback к пустому массиву
+      setCalendarAppointments([]);
     } finally {
       setIsLoading(false);
     }
@@ -97,18 +135,23 @@ export default function Appointments() {
 
   const handleUpdateStatus = async (appointmentId: string, newStatus: string) => {
     try {
-      await axios.put(`/api/appointments/${appointmentId}`, {
+      console.log(`🔄 Обновление статуса записи ${appointmentId} на ${newStatus}`);
+
+      await apiService.put(`/api/appointments/${appointmentId}`, {
         status: newStatus,
       });
 
-      // Refresh the appointments
+      console.log('✅ Статус обновлен');
+
+      // Обновляем данные
       if (view === 'list') {
         fetchAppointmentsList();
       } else {
         fetchCalendarAppointments();
       }
-    } catch (error) {
-      console.error('Error updating appointment status:', error);
+    } catch (error: any) {
+      console.error('❌ Ошибка при обновлении статуса:', error);
+      setError(error?.message || 'Не удалось обновить статус');
     }
   };
 
@@ -198,7 +241,7 @@ export default function Appointments() {
                       to={`/appointments/${appointment.id}`}
                       className="block text-xs truncate p-1 rounded bg-indigo-50 hover:bg-indigo-100"
                     >
-                      {appointment.service_name} - {appointment.start.split('T')[1].substring(0, 5)}
+                      {appointment.service_name} - {appointment.start.split('T')[1]?.substring(0, 5)}
                     </Link>
                   ))}
                   {dayAppointments.length > 3 && (
@@ -234,7 +277,21 @@ export default function Appointments() {
             {appointments.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                  No appointments found
+                  {error ? (
+                    <div className="text-red-600">
+                      <p>Ошибка: {error}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={fetchAppointmentsList}
+                        className="mt-2"
+                      >
+                        Попробовать снова
+                      </Button>
+                    </div>
+                  ) : (
+                    'No appointments found'
+                  )}
                 </td>
               </tr>
             ) : (
@@ -243,24 +300,29 @@ export default function Appointments() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{appointment.customer.name}</div>
-                        <div className="text-sm text-gray-500">{appointment.customer.phone}</div>
+                        <div className="text-sm font-medium text-gray-900">{appointment.customer?.name || 'Unknown'}</div>
+                        <div className="text-sm text-gray-500">{appointment.customer?.phone || 'No phone'}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.service.name}</div>
+                    <div className="text-sm text-gray-900">{appointment.service?.name || 'Unknown service'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatDate(appointment.appointment_date)}</div>
-                    <div className="text-sm text-gray-500">{appointment.appointment_time}</div>
+                    <div className="text-sm text-gray-900">
+                      {appointment.appointment_date ? formatDate(appointment.appointment_date) : 'No date'}
+                    </div>
+                    <div className="text-sm text-gray-500">{appointment.appointment_time || 'No time'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {renderStatusBadge(appointment.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <Link to={`/appointments/${appointment.id}`} className="text-indigo-600 hover:text-indigo-900">
+                      <Link
+                        to={`/appointments/${appointment.id}`}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
                         View
                       </Link>
                       <div className="relative">
@@ -268,6 +330,7 @@ export default function Appointments() {
                           value={appointment.status}
                           onChange={(e) => handleUpdateStatus(appointment.id, e.target.value)}
                           className="block w-full bg-transparent border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
+                          disabled={isLoading}
                         >
                           <option value="pending">Pending</option>
                           <option value="confirmed">Confirmed</option>
@@ -321,23 +384,58 @@ export default function Appointments() {
             </Button>
           </div>
 
-          <div className="relative">
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-            >
-              <option value="">All Status</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-              <Filter className="h-4 w-4" />
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                disabled={isLoading}
+              >
+                <option value="">All Status</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                <Filter className="h-4 w-4" />
+              </div>
             </div>
+
+            <Button
+              variant="outline"
+              onClick={() => view === 'list' ? fetchAppointmentsList() : fetchCalendarAppointments()}
+              disabled={isLoading}
+              className="inline-flex items-center"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
         </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Ошибка загрузки</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => view === 'list' ? fetchAppointmentsList() : fetchCalendarAppointments()}
+                  >
+                    Попробовать снова
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
