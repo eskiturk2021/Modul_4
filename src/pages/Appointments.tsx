@@ -5,6 +5,7 @@ import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight } from 'lu
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 
 import { Button } from '@/components/ui/Button';
+import { DynamicTable } from '@/components/ui/DynamicTable';
 import { formatDate } from '@/lib/utils';
 import apiService from '@/services/apiService';
 
@@ -155,20 +156,84 @@ export default function Appointments() {
     }
   };
 
-  const renderStatusBadge = (status: string) => {
-    const colorMap: Record<string, string> = {
-      'confirmed': 'bg-green-100 text-green-800',
-      'pending': 'bg-yellow-100 text-yellow-800',
-      'cancelled': 'bg-red-100 text-red-800',
-      'completed': 'bg-blue-100 text-blue-800',
-      'new': 'bg-purple-100 text-purple-800',
-    };
+  const handleRowClick = (appointment: Appointment) => {
+    // Навигация к деталям записи
+    console.log('Клик по записи:', appointment);
+    // window.location.href = `/appointments/${appointment.id}`;
+  };
 
-    return (
-      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colorMap[status] || 'bg-gray-100 text-gray-800'}`}>
-        {status}
-      </span>
-    );
+  // Кастомные рендереры для DynamicTable
+  const customRenderers = {
+    // Рендер информации о клиенте
+    customer: (value: any, item: Appointment) => (
+      <div className="flex items-center">
+        <div className="ml-4">
+          <div className="text-sm font-medium text-gray-900">{value?.name || 'Unknown'}</div>
+          <div className="text-sm text-gray-500">{value?.phone || 'No phone'}</div>
+        </div>
+      </div>
+    ),
+
+    // Рендер информации о сервисе
+    service: (value: any) => (
+      <div className="text-sm text-gray-900">{value?.name || 'Unknown service'}</div>
+    ),
+
+    // Рендер даты и времени записи
+    appointment_date: (value: string, item: Appointment) => (
+      <div>
+        <div className="text-sm text-gray-900">
+          {value ? formatDate(value) : 'No date'}
+        </div>
+        <div className="text-sm text-gray-500">{item.appointment_time || 'No time'}</div>
+      </div>
+    ),
+
+    // Рендер статуса
+    status: (value: string, item: Appointment) => (
+      <div className="flex items-center space-x-2">
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+          value === 'confirmed' ? 'bg-green-100 text-green-800' :
+          value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+          value === 'cancelled' ? 'bg-red-100 text-red-800' :
+          value === 'completed' ? 'bg-blue-100 text-blue-800' :
+          value === 'new' ? 'bg-purple-100 text-purple-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {value}
+        </span>
+        <div className="relative">
+          <select
+            value={value}
+            onChange={(e) => {
+              e.stopPropagation();
+              handleUpdateStatus(item.id, e.target.value);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="block w-full bg-transparent border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
+            disabled={isLoading}
+          >
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+    ),
+
+    // Добавляем рендер для действий (View ссылка)
+    actions: (value: any, item: Appointment) => (
+      <div className="text-right text-sm font-medium">
+        <Link
+          to={`/appointments/${item.id}`}
+          className="text-indigo-600 hover:text-indigo-900"
+          onClick={(e) => e.stopPropagation()}
+        >
+          View
+        </Link>
+      </div>
+    )
   };
 
   const renderCalendarView = () => {
@@ -258,94 +323,48 @@ export default function Appointments() {
     );
   };
 
+  // Подготавливаем данные для DynamicTable
+  const prepareTableData = () => {
+    return appointments.map(appointment => ({
+      ...appointment,
+      // Добавляем виртуальное поле для действий
+      actions: 'actions'
+    }));
+  };
+
   const renderListView = () => {
-    return (
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Service</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th scope="col" className="relative px-6 py-3">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {appointments.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                  {error ? (
-                    <div className="text-red-600">
-                      <p>Ошибка: {error}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={fetchAppointmentsList}
-                        className="mt-2"
-                      >
-                        Попробовать снова
-                      </Button>
-                    </div>
-                  ) : (
-                    'No appointments found'
-                  )}
-                </td>
-              </tr>
+    if (appointments.length === 0) {
+      return (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 text-center text-sm text-gray-500">
+            {error ? (
+              <div className="text-red-600">
+                <p>Ошибка: {error}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchAppointmentsList}
+                  className="mt-2"
+                >
+                  Попробовать снова
+                </Button>
+              </div>
             ) : (
-              appointments.map((appointment) => (
-                <tr key={appointment.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{appointment.customer?.name || 'Unknown'}</div>
-                        <div className="text-sm text-gray-500">{appointment.customer?.phone || 'No phone'}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{appointment.service?.name || 'Unknown service'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {appointment.appointment_date ? formatDate(appointment.appointment_date) : 'No date'}
-                    </div>
-                    <div className="text-sm text-gray-500">{appointment.appointment_time || 'No time'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {renderStatusBadge(appointment.status)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center space-x-2">
-                      <Link
-                        to={`/appointments/${appointment.id}`}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        View
-                      </Link>
-                      <div className="relative">
-                        <select
-                          value={appointment.status}
-                          onChange={(e) => handleUpdateStatus(appointment.id, e.target.value)}
-                          className="block w-full bg-transparent border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
-                          disabled={isLoading}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              'No appointments found'
             )}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <DynamicTable
+        data={prepareTableData()}
+        isLoading={isLoading}
+        onRowClick={handleRowClick}
+        excludeColumns={['id', 'estimated_cost', 'appointment_time']} // Исключаем, так как appointment_time показываем в appointment_date
+        customRenderers={customRenderers}
+      />
     );
   };
 
