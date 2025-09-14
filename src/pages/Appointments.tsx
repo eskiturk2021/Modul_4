@@ -332,39 +332,48 @@ export default function Appointments() {
     }));
   };
 
+  // ИСПРАВЛЕННАЯ функция renderListView
   const renderListView = () => {
-    if (appointments.length === 0) {
-      return (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 text-center text-sm text-gray-500">
-            {error ? (
-              <div className="text-red-600">
-                <p>Ошибка: {error}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchAppointmentsList}
-                  className="mt-2"
-                >
-                  Попробовать снова
-                </Button>
-              </div>
-            ) : (
-              'No appointments found'
-            )}
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <DynamicTable
-        data={prepareTableData()}
-        isLoading={isLoading}
-        onRowClick={handleRowClick}
-        excludeColumns={['id', 'estimated_cost', 'appointment_time']} // Исключаем, так как appointment_time показываем в appointment_date
-        customRenderers={customRenderers}
-      />
+      <>
+        {/* Таблица отображается всегда, независимо от наличия данных */}
+        <DynamicTable
+          data={prepareTableData()}
+          isLoading={isLoading}
+          onRowClick={handleRowClick}
+          excludeColumns={['id', 'estimated_cost', 'appointment_time']} // Исключаем, так как appointment_time показываем в appointment_date
+          customRenderers={customRenderers}
+        />
+
+        {/* Сообщение показываем только когда НЕ загружается И нет данных */}
+        {!isLoading && appointments.length === 0 && (
+          <div className="bg-white rounded-lg shadow overflow-hidden mt-4">
+            <div className="px-6 py-4 text-center text-sm text-gray-500">
+              {error ? (
+                <div className="text-red-600">
+                  <p>Ошибка: {error}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchAppointmentsList}
+                    className="mt-2 inline-flex items-center"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Попробовать снова
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <p>No appointments found</p>
+                  <p className="text-xs mt-2 text-gray-400">
+                    Создайте первую запись нажав кнопку "New Appointment"
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </>
     );
   };
 
@@ -403,28 +412,22 @@ export default function Appointments() {
             </Button>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="relative">
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                disabled={isLoading}
-              >
-                <option value="">All Status</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                <Filter className="h-4 w-4" />
-              </div>
-            </div>
+          <div className="flex space-x-2">
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="block w-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
+            >
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
 
             <Button
               variant="outline"
-              onClick={() => view === 'list' ? fetchAppointmentsList() : fetchCalendarAppointments()}
+              onClick={view === 'list' ? fetchAppointmentsList : fetchCalendarAppointments}
               disabled={isLoading}
               className="inline-flex items-center"
             >
@@ -434,29 +437,8 @@ export default function Appointments() {
           </div>
         </div>
 
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Ошибка загрузки</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
-                <div className="mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => view === 'list' ? fetchAppointmentsList() : fetchCalendarAppointments()}
-                  >
-                    Попробовать снова
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isLoading ? (
+        {/* Показываем индикатор загрузки только при первой загрузке */}
+        {isLoading && appointments.length === 0 && calendarAppointments.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="h-8 w-8 text-gray-400 animate-spin" />
             <span className="ml-2 text-gray-600">Loading appointments...</span>
