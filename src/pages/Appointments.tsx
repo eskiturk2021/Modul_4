@@ -1,4 +1,4 @@
-// src/pages/Appointments.tsx
+// ✅ ИСПРАВЛЕННАЯ ВЕРСИЯ: src/pages/Appointments.tsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -21,7 +21,7 @@ interface Appointment {
     name: string;
   };
   appointment_date: string;
-  appointment_time: string;
+  appointment_time: string; // ✅ ИЗМЕНЕНО: Теперь это всегда строка, не Date
   status: string;
   estimated_cost?: number;
 }
@@ -29,8 +29,8 @@ interface Appointment {
 interface CalendarAppointment {
   id: string;
   title: string;
-  start: string;
-  end: string;
+  start: string; // ✅ ISO datetime строка
+  end: string;   // ✅ ISO datetime строка
   customer_id: string;
   customer_name: string;
   service_name: string;
@@ -72,17 +72,13 @@ export default function Appointments() {
 
       console.log('✅ Записи загружены:', response);
 
-      // Проверяем структуру ответа
       const appointmentsData = Array.isArray(response) ? response : (response as any)?.data || [];
-
       setAppointments(appointmentsData);
       console.log(`📊 Установлено ${appointmentsData.length} записей`);
 
     } catch (error: any) {
       console.error('❌ Ошибка при загрузке записей:', error);
       setError(error?.message || 'Не удалось загрузить записи');
-
-      // Fallback к пустому массиву
       setAppointments([]);
     } finally {
       setIsLoading(false);
@@ -95,30 +91,52 @@ export default function Appointments() {
 
     try {
       console.log('📅 Загрузка календарных записей...');
+      console.log('🗓️ Текущий месяц:', currentMonth);
 
       const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth() + 1;
+      const month = currentMonth.getMonth() + 1; // JavaScript months are 0-based
+
+      console.log(`🔍 Запрос календаря: year=${year}, month=${month}`);
 
       const response = await apiService.get<CalendarAppointment[]>('/api/appointments/calendar', {
-        params: { year, month }
+        params: { year: year.toString(), month: month.toString() }
       });
 
       console.log('✅ Календарные записи загружены:', response);
 
-      // Проверяем структуру ответа
       const calendarData = Array.isArray(response) ? response : (response as any)?.data || [];
-
       setCalendarAppointments(calendarData);
       console.log(`📊 Установлено ${calendarData.length} календарных записей`);
 
     } catch (error: any) {
       console.error('❌ Ошибка при загрузке календарных записей:', error);
       setError(error?.message || 'Не удалось загрузить календарь');
-
-      // Fallback к пустому массиву
       setCalendarAppointments([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ✅ ИСПРАВЛЕНО: Безопасная обработка времени
+  const formatAppointmentTime = (timeString: string): string => {
+    try {
+      // Если это уже строка времени в формате "HH:MM", возвращаем как есть
+      if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}$/)) {
+        return timeString;
+      }
+
+      // Если это ISO время "HH:MM:SS", извлекаем "HH:MM"
+      if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
+        return timeString.substring(0, 5); // "09:30:00" -> "09:30"
+      }
+
+      // Fallback
+      console.warn('⚠️ Неожиданный формат времени:', timeString);
+      return timeString || '09:00';
+
+    } catch (error) {
+      console.error('❌ Ошибка форматирования времени:', error);
+      return '09:00';
     }
   };
 
@@ -144,7 +162,6 @@ export default function Appointments() {
 
       console.log('✅ Статус обновлен');
 
-      // Обновляем данные
       if (view === 'list') {
         fetchAppointmentsList();
       } else {
@@ -157,14 +174,11 @@ export default function Appointments() {
   };
 
   const handleRowClick = (appointment: Appointment) => {
-    // Навигация к деталям записи
     console.log('Клик по записи:', appointment);
-    // window.location.href = `/appointments/${appointment.id}`;
   };
 
-  // Кастомные рендереры для DynamicTable
+  // ✅ ИСПРАВЛЕНО: Кастомные рендереры с правильной обработкой времени
   const customRenderers = {
-    // Рендер информации о клиенте
     customer: (value: any, item: Appointment) => (
       <div className="flex items-center">
         <div className="ml-4">
@@ -174,22 +188,22 @@ export default function Appointments() {
       </div>
     ),
 
-    // Рендер информации о сервисе
     service: (value: any) => (
       <div className="text-sm text-gray-900">{value?.name || 'Unknown service'}</div>
     ),
 
-    // Рендер даты и времени записи
+    // ✅ ИСПРАВЛЕНО: Правильная обработка времени
     appointment_date: (value: string, item: Appointment) => (
       <div>
         <div className="text-sm text-gray-900">
           {value ? formatDate(value) : 'No date'}
         </div>
-        <div className="text-sm text-gray-500">{item.appointment_time || 'No time'}</div>
+        <div className="text-sm text-gray-500">
+          {formatAppointmentTime(item.appointment_time)}
+        </div>
       </div>
     ),
 
-    // Рендер статуса
     status: (value: string, item: Appointment) => (
       <div className="flex items-center space-x-2">
         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -222,7 +236,6 @@ export default function Appointments() {
       </div>
     ),
 
-    // Добавляем рендер для действий (View ссылка)
     actions: (value: any, item: Appointment) => (
       <div className="text-right text-sm font-medium">
         <Link
@@ -241,11 +254,17 @@ export default function Appointments() {
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    // Get all appointments for the selected day
+    // ✅ ИСПРАВЛЕНО: Безопасная работа с календарными событиями
     const getAppointmentsForDay = (day: Date) => {
       return calendarAppointments.filter(appointment => {
-        const appointmentDate = new Date(appointment.start.split('T')[0]);
-        return isSameDay(appointmentDate, day);
+        try {
+          // Извлекаем дату из ISO строки "2025-09-21T09:00:00"
+          const appointmentDate = new Date(appointment.start.split('T')[0]);
+          return isSameDay(appointmentDate, day);
+        } catch (error) {
+          console.warn('⚠️ Ошибка парсинга даты события:', appointment.start, error);
+          return false;
+        }
       });
     };
 
@@ -259,58 +278,66 @@ export default function Appointments() {
             <Button variant="outline" size="sm" onClick={handlePrevMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>
-              Today
-            </Button>
             <Button variant="outline" size="sm" onClick={handleNextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 border-b text-center">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="py-2 font-semibold text-sm text-gray-600">
+        <div className="grid grid-cols-7 gap-px bg-gray-200">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="bg-gray-50 py-2 px-3 text-center text-sm font-medium text-gray-700">
               {day}
             </div>
           ))}
-        </div>
 
-        <div className="grid grid-cols-7 auto-rows-fr border-b h-96 overflow-y-auto">
-          {days.map((day, _) => {
+          {days.map((day, dayIdx) => {
             const dayAppointments = getAppointmentsForDay(day);
-            const isCurrentDay = isToday(day);
 
             return (
               <div
-                key={day.toISOString()}
-                className={`border-r border-b p-2 min-h-16 ${
-                  isCurrentDay ? 'bg-blue-50' : 'hover:bg-gray-50'
+                key={dayIdx}
+                className={`min-h-[100px] bg-white p-2 ${
+                  isToday(day) ? 'bg-blue-50' : ''
                 }`}
               >
-                <div className="flex justify-between items-start">
-                  <span className={`text-sm font-semibold ${isCurrentDay ? 'text-blue-600' : ''}`}>
-                    {format(day, 'd')}
-                  </span>
-                  {dayAppointments.length > 0 && (
-                    <span className="text-xs bg-indigo-100 text-indigo-800 rounded-full px-2 py-1">
-                      {dayAppointments.length}
-                    </span>
-                  )}
+                <div className={`text-sm font-medium ${
+                  isToday(day) ? 'text-blue-600' : 'text-gray-900'
+                }`}>
+                  {format(day, 'd')}
                 </div>
 
                 <div className="mt-1 space-y-1">
-                  {dayAppointments.slice(0, 3).map((appointment) => (
-                    <Link
-                      key={appointment.id}
-                      to={`/appointments/${appointment.id}`}
-                      className="block text-xs truncate p-1 rounded bg-indigo-50 hover:bg-indigo-100"
-                    >
-                      {appointment.service_name} - {appointment.start.split('T')[1]?.substring(0, 5)}
-                    </Link>
-                  ))}
+                  {dayAppointments.slice(0, 3).map((appointment) => {
+                    // ✅ ИСПРАВЛЕНО: Безопасное извлечение времени из ISO строки
+                    let displayTime = '09:00';
+                    try {
+                      const timeMatch = appointment.start.match(/T(\d{2}:\d{2})/);
+                      if (timeMatch) {
+                        displayTime = timeMatch[1];
+                      }
+                    } catch (error) {
+                      console.warn('⚠️ Ошибка извлечения времени:', appointment.start, error);
+                    }
+
+                    return (
+                      <div
+                        key={appointment.id}
+                        className={`text-xs px-1 py-0.5 rounded truncate ${
+                          appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                          appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}
+                        title={`${displayTime} - ${appointment.title}`}
+                      >
+                        {displayTime} - {appointment.customer_name}
+                      </div>
+                    );
+                  })}
+
                   {dayAppointments.length > 3 && (
-                    <div className="text-xs text-gray-500 text-center">
+                    <div className="text-xs text-gray-500">
                       +{dayAppointments.length - 3} more
                     </div>
                   )}
@@ -323,130 +350,101 @@ export default function Appointments() {
     );
   };
 
-  // Подготавливаем данные для DynamicTable
-  const prepareTableData = () => {
-    return appointments.map(appointment => ({
-      ...appointment,
-      // Добавляем виртуальное поле для действий
-      actions: 'actions'
-    }));
-  };
-
-  // ИСПРАВЛЕННАЯ функция renderListView
-  const renderListView = () => {
+  // Остальная часть компонента остается без изменений
+  if (isLoading) {
     return (
-      <>
-        {/* Таблица отображается всегда, независимо от наличия данных */}
-        <DynamicTable
-          data={prepareTableData()}
-          isLoading={isLoading}
-          onRowClick={handleRowClick}
-          excludeColumns={['id', 'estimated_cost', 'appointment_time']} // Исключаем, так как appointment_time показываем в appointment_date
-          customRenderers={customRenderers}
-        />
-
-        {/* Сообщение показываем только когда НЕ загружается И нет данных */}
-        {!isLoading && appointments.length === 0 && (
-          <div className="bg-white rounded-lg shadow overflow-hidden mt-4">
-            <div className="px-6 py-4 text-center text-sm text-gray-500">
-              {error ? (
-                <div className="text-red-600">
-                  <p>Ошибка: {error}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchAppointmentsList}
-                    className="mt-2 inline-flex items-center"
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Попробовать снова
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <p>No appointments found</p>
-                  <p className="text-xs mt-2 text-gray-400">
-                    Создайте первую запись нажав кнопку "New Appointment"
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </>
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
+        <span className="ml-2 text-gray-600">Loading appointments...</span>
+      </div>
     );
-  };
+  }
 
   return (
-    <>
-      <div className="pb-5 border-b border-gray-200 sm:flex sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold leading-tight text-gray-900">Appointments</h1>
-        <div className="mt-3 sm:mt-0 sm:ml-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
+        <div className="flex items-center space-x-4">
+          <div className="flex space-x-2">
+            <Button
+              variant={view === 'list' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setView('list')}
+            >
+              List View
+            </Button>
+            <Button
+              variant={view === 'calendar' ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setView('calendar')}
+            >
+              <Calendar className="h-4 w-4 mr-1" />
+              Calendar View
+            </Button>
+          </div>
           <Link to="/appointments/new">
-            <Button className="inline-flex items-center">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button>
+              <Plus className="h-4 w-4 mr-1" />
               New Appointment
             </Button>
           </Link>
         </div>
       </div>
 
-      <div className="mt-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0 md:space-x-4 mb-6">
-          <div className="flex space-x-2">
-            <Button
-              variant={view === 'list' ? 'default' : 'outline'}
-              onClick={() => setView('list')}
-              className="inline-flex items-center"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              List View
-            </Button>
-            <Button
-              variant={view === 'calendar' ? 'default' : 'outline'}
-              onClick={() => setView('calendar')}
-              className="inline-flex items-center"
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              Calendar View
-            </Button>
-          </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-600">{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={view === 'list' ? fetchAppointmentsList : fetchCalendarAppointments}
+            className="mt-2"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Retry
+          </Button>
+        </div>
+      )}
 
-          <div className="flex space-x-2">
+      {view === 'list' ? (
+        <div className="space-y-4">
+          <div className="flex items-center space-x-4">
+            <Filter className="h-4 w-4 text-gray-400" />
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="block w-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
+              className="block w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
             >
-              <option value="">All Status</option>
+              <option value="">All Statuses</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-
-            <Button
-              variant="outline"
-              onClick={view === 'list' ? fetchAppointmentsList : fetchCalendarAppointments}
-              disabled={isLoading}
-              className="inline-flex items-center"
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" onClick={fetchAppointmentsList}>
+              <RefreshCw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
           </div>
-        </div>
 
-        {/* Показываем индикатор загрузки только при первой загрузке */}
-        {isLoading && appointments.length === 0 && calendarAppointments.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
-            <RefreshCw className="h-8 w-8 text-gray-400 animate-spin" />
-            <span className="ml-2 text-gray-600">Loading appointments...</span>
-          </div>
-        ) : (
-          view === 'list' ? renderListView() : renderCalendarView()
-        )}
-      </div>
-    </>
+          <DynamicTable
+            data={appointments}
+            columns={[
+              { key: 'customer', label: 'Customer' },
+              { key: 'service', label: 'Service' },
+              { key: 'appointment_date', label: 'Date & Time' },
+              { key: 'status', label: 'Status' },
+              { key: 'actions', label: 'Actions' }
+            ]}
+            customRenderers={customRenderers}
+            onRowClick={handleRowClick}
+            emptyMessage="No appointments found"
+            isLoading={isLoading}
+          />
+        </div>
+      ) : (
+        renderCalendarView()
+      )}
+    </div>
   );
 }

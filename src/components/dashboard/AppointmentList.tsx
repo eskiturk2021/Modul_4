@@ -1,5 +1,3 @@
-// src/components/dashboard/AppointmentList.tsx
-
 import { formatDate } from '@/lib/utils';
 
 interface Appointment {
@@ -12,7 +10,7 @@ interface Appointment {
     name: string;
   };
   appointment_date: string;
-  appointment_time: string;
+  appointment_time: string; // ✅ ИЗМЕНЕНО: Теперь это строка, не Date объект
   status: string;
 }
 
@@ -20,6 +18,29 @@ interface AppointmentListProps {
   appointments: Appointment[];
   title?: string;
 }
+
+// ✅ НОВЫЙ МЕТОД: Безопасное форматирование времени
+const formatAppointmentTime = (timeString: string): string => {
+  try {
+    // Если это уже строка времени в формате "HH:MM", возвращаем как есть
+    if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}$/)) {
+      return timeString;
+    }
+
+    // Если это ISO время "HH:MM:SS", извлекаем "HH:MM"
+    if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
+      return timeString.substring(0, 5); // "09:30:00" -> "09:30"
+    }
+
+    // Fallback для неожиданных форматов
+    console.warn('⚠️ Неожиданный формат времени в AppointmentList:', timeString);
+    return timeString || '09:00';
+
+  } catch (error) {
+    console.error('❌ Ошибка форматирования времени в AppointmentList:', error);
+    return '09:00';
+  }
+};
 
 export function AppointmentList({ appointments, title = "Upcoming Appointments" }: AppointmentListProps) {
   return (
@@ -51,13 +72,17 @@ export function AppointmentList({ appointments, title = "Upcoming Appointments" 
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{formatDate(appointment.appointment_date)}</div>
-                    <div className="text-sm text-gray-500">{appointment.appointment_time}</div>
+                    <div className="text-sm text-gray-500">
+                      {/* ✅ ИСПРАВЛЕНО: Безопасное форматирование времени */}
+                      {formatAppointmentTime(appointment.appointment_time)}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                       appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      appointment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {appointment.status}
