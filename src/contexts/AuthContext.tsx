@@ -41,21 +41,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check if token exists and is valid
+    // Check if token exists and is valid - БЕЗ автоматического refresh при первом заходе
     const validateToken = async () => {
-      if (token) {
-        try {
-          // Set default headers for all requests
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      console.log('[AUTH] Начинаем валидацию токена при загрузке страницы');
 
-          // Check if token is still valid
-          if (!tokenService.isTokenValid()) {
-            console.warn('Token has expired, trying to refresh...');
-            const refreshed = await refreshToken();
-            if (!refreshed) {
-              throw new Error('Token refresh failed');
-            }
-          } else {
+      if (token) {
+        console.log('[AUTH] Токен найден, проверяем его валидность');
+
+        // Сначала проверяем, валиден ли токен БЕЗ refresh
+        if (tokenService.isTokenValid()) {
+          console.log('[AUTH] Токен валиден, используем его без refresh');
+
+          try {
+            // Set default headers for all requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
             // Token is valid, get user info from it
             const decoded = tokenService.getDecodedToken();
             if (decoded) {
@@ -76,22 +76,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               });
               console.log('[AUTH] Установлены глобальные заголовки tenant_id при валидации токена:', tenantHeaders);
             }
+          } catch (error) {
+            console.error('[AUTH] Ошибка при обработке валидного токена:', error);
+            // Если что-то пошло не так с валидным токеном, очищаем все
+            tokenService.removeToken();
+            setToken(null);
+            setUser(null);
+            setTenantId(null);
           }
-        } catch (error) {
-          console.error('Invalid token', error);
+        } else {
+          console.log('[AUTH] Токен невалиден или истек - НЕ пытаемся refresh при первом заходе');
+          console.log('[AUTH] Очищаем токен и показываем форму логина');
+
+          // Токен невалиден - очищаем все и показываем форму логина
           tokenService.removeToken();
           setToken(null);
           setUser(null);
-          setTenantId(null); // Сбрасываем tenant_id
+          setTenantId(null);
+
+          // Очищаем заголовки
+          delete axios.defaults.headers.common['Authorization'];
+          delete axios.defaults.headers.common['X-Tenant-ID'];
+          delete axios.defaults.headers.common['x-tenant-id'];
         }
+      } else {
+        console.log('[AUTH] Токен не найден - показываем форму логина');
       }
+
       setIsLoading(false);
     };
 
     validateToken();
-
-    return () => {
-    };
   }, [token]);
 
   // Обновленный метод login в AuthContext.tsx
@@ -207,17 +222,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // Метод refreshToken - используется ТОЛЬКО когда пользователь уже залогинен
   const refreshToken = async (): Promise<boolean> => {
       try {
           // Получаем текущий токен
           const currentToken = tokenService.getToken();
 
           if (!currentToken) {
-              console.error('Нет токена для обновления');
+              console.error('[AUTH] Нет токена для обновления');
               return false;
           }
 
-          console.log("Attempting to refresh token in AuthContext:", { token: currentToken });
+          console.log("[AUTH] Попытка обновления токена (пользователь уже залогинен):", { token: currentToken.substring(0, 10) + '...' });
 
           // Попытка 1: Стандартный вызов через apiService
           try {
@@ -231,28 +247,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
               // Сохраняем tenant_id из ответа, если он есть
               if (tenant_id) {
-                tokenService.setTenantId(tenant_id);
-                console.log(`[AUTH] Сохранен tenant_id из ответа обновления токена: ${tenant_id}`);
+                  tokenService.setTenantId(tenant_id);
+                  setTenantId(tenant_id);
+                  console.log(`[AUTH] Обновлен tenant_id из refresh: ${tenant_id}`);
+
+                  // Обновляем заголовки tenant_id
+                  const tenantHeaders = tokenService.getTenantHeaders();
+                  Object.entries(tenantHeaders).forEach(([key, value]) => {
+                    axios.defaults.headers.common[key] = value;
+                  });
+                  console.log('[AUTH] Обновлены глобальные заголовки tenant_id после refresh:', tenantHeaders);
               }
 
-              // Получаем итоговый tenant_id
-              const effectiveTenantId = tokenService.getTenantId();
-
-              // Обновляем состояние
+              // Обновляем состояние токена
               setToken(newToken);
-              setTenantId(effectiveTenantId);
 
-              // Обновляем заголовки
+              // Обновляем заголовок авторизации
               axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
-              // Получаем и устанавливаем заголовки tenant_id
-              const tenantHeaders = tokenService.getTenantHeaders();
-              Object.entries(tenantHeaders).forEach(([key, value]) => {
-                axios.defaults.headers.common[key] = value;
-              });
-              console.log('[AUTH] Обновлены глобальные заголовки tenant_id:', tenantHeaders);
+              console.log('[AUTH] Токен успешно обновлен (метод 1)');
 
-              // Обновляем данные пользователя
+              // Обновляем данные пользователя из нового токена
               const decoded = tokenService.getDecodedToken();
               if (decoded) {
                   setUser({
@@ -260,55 +275,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                       username: decoded.username,
                       email: decoded.email,
                       role: decoded.role,
-                      tenant_id: decoded.tenant_id // Обновляем tenant_id из токена
+                      tenant_id: decoded.tenant_id
                   });
               }
 
               return true;
-          } catch (error) {
-              console.error('Standard token refresh failed, trying fallback method', error);
+          } catch (refreshError) {
+              console.warn('[AUTH] Попытка 1 refresh не удалась, пробуем альтернативный метод:', refreshError);
 
-              // Попытка 2: Использование токена в заголовке
-              // В методе refreshToken
-              const response = await axios.post<RefreshTokenResponse>(
-                `${import.meta.env.VITE_API_URL || 'https://modul301-production.up.railway.app'}/api/auth/refresh`,
-                {},  // Пустое тело
-                {
-                  headers: {
-                    'Authorization': `Bearer ${currentToken}`,
-                    'X-API-Key': API_KEY,
-                    'Content-Type': 'application/json'
-                  }
-                } as AxiosRequestConfig
-              );
+               // Попытка 2: Альтернативный метод через прямой вызов axios
+               const response = await axios.post(
+                 `${import.meta.env.VITE_API_URL || 'https://modul301-production.up.railway.app'}/api/auth/refresh`,
+                 { refresh_token: currentToken },  // Используем refresh_token вместо token
+                 {
+                   headers: {
+                     'Content-Type': 'application/json',
+                     'X-API-Key': API_KEY,
+                     'X-Tenant-ID': tokenService.getTenantId() || 'default'
+                   }
+                 }
+               );
 
                const { token: newToken, tenant_id } = response.data;
 
-               // Сохраняем новый токен
+               // Сохраняем новый токен и обновляем состояние
                tokenService.setToken(newToken);
-
-               // Сохраняем tenant_id из ответа, если он есть
-               if (tenant_id) {
-                 tokenService.setTenantId(tenant_id);
-                 console.log(`[AUTH] Сохранен tenant_id из ответа альтернативного обновления токена: ${tenant_id}`);
-               }
-
-               // Получаем итоговый tenant_id
-               const effectiveTenantId = tokenService.getTenantId();
-
-               // Обновляем состояние
                setToken(newToken);
-               setTenantId(effectiveTenantId);
 
                // Обновляем заголовки
                axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
-               // Получаем и устанавливаем заголовки tenant_id
-               const tenantHeaders = tokenService.getTenantHeaders();
-               Object.entries(tenantHeaders).forEach(([key, value]) => {
-                 axios.defaults.headers.common[key] = value;
-               });
-               console.log('[AUTH] Обновлены глобальные заголовки tenant_id (альтернативный метод):', tenantHeaders);
+               // Обновляем tenant_id если получен
+               if (tenant_id) {
+                   tokenService.setTenantId(tenant_id);
+                   setTenantId(tenant_id);
+
+                   const tenantHeaders = tokenService.getTenantHeaders();
+                   Object.entries(tenantHeaders).forEach(([key, value]) => {
+                     axios.defaults.headers.common[key] = value;
+                   });
+                   console.log('[AUTH] Обновлены глобальные заголовки tenant_id (альтернативный метод):', tenantHeaders);
+               }
 
                // Обновляем данные пользователя
                const decoded = tokenService.getDecodedToken();
@@ -318,14 +325,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                        username: decoded.username,
                        email: decoded.email,
                        role: decoded.role,
-                       tenant_id: decoded.tenant_id // Обновляем tenant_id из токена
+                       tenant_id: decoded.tenant_id
                    });
                }
 
+               console.log('[AUTH] Токен успешно обновлен (метод 2)');
                return true;
           }
       } catch (error) {
-          console.error('All token refresh methods failed', error);
+          console.error('[AUTH] Все попытки refresh токена провалились:', error);
+
+          // Если refresh не удался, выходим из системы
           logout();
           return false;
       }
@@ -352,7 +362,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isLoading,
     login,
     logout,
-    //isAuthenticated: !!user, - логин и пароль на главной странице
     isAuthenticated: !!user && !!token,
     refreshToken
   };
