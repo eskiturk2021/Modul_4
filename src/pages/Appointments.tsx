@@ -1,4 +1,4 @@
-// ✅ УЛУЧШЕННАЯ ВЕРСИЯ: src/pages/Appointments.tsx с интерактивным календарем
+// ✅ ИСПРАВЛЕННАЯ ВЕРСИЯ: src/pages/Appointments.tsx с полной интерактивностью
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight, X, Clock, User, Briefcase } from 'lucide-react';
@@ -39,7 +39,7 @@ interface CalendarAppointment {
 
 export default function Appointments() {
   const navigate = useNavigate();
-  const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [view, setView] = useState<'list' | 'calendar'>('calendar'); // Начинаем с календаря
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [calendarAppointments, setCalendarAppointments] = useState<CalendarAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,12 +47,25 @@ export default function Appointments() {
   const [status, setStatus] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // ✅ НОВОЕ: Состояния для модального окна
+  // Состояния для модального окна
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDateAppointments, setSelectedDateAppointments] = useState<CalendarAppointment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Отладочные логи
+  console.log('🔍 Appointments Debug:', {
+    view,
+    appointmentsCount: appointments.length,
+    calendarAppointmentsCount: calendarAppointments.length,
+    isLoading,
+    currentMonth: format(currentMonth, 'MMMM yyyy'),
+    isModalOpen,
+    selectedDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
+  });
+
   useEffect(() => {
+    console.log('📅 Effect triggered:', { view, status, currentMonth: format(currentMonth, 'yyyy-MM') });
+
     if (view === 'list') {
       fetchAppointmentsList();
     } else {
@@ -65,7 +78,7 @@ export default function Appointments() {
     setError(null);
 
     try {
-      console.log('📅 Загрузка списка записей...');
+      console.log('📋 Загрузка списка записей...');
 
       const params: Record<string, string> = {};
       if (status) {
@@ -116,34 +129,43 @@ export default function Appointments() {
     }
   };
 
-  // ✅ НОВОЕ: Обработчик клика на день в календаре
+  // Обработчик клика на день в календаре
   const handleDayClick = (date: Date) => {
+    console.log('🖱️ Day clicked:', format(date, 'yyyy-MM-dd'));
+
     const dayAppointments = calendarAppointments.filter(appointment => {
       const appointmentDate = new Date(appointment.start);
       return isSameDay(appointmentDate, date);
     });
 
+    console.log('📋 Appointments for this day:', dayAppointments);
+
     if (dayAppointments.length > 0) {
       setSelectedDate(date);
       setSelectedDateAppointments(dayAppointments);
       setIsModalOpen(true);
+      console.log('🔓 Modal opened');
+    } else {
+      console.log('❌ No appointments for this day');
     }
   };
 
-  // ✅ НОВОЕ: Обработчик клика на конкретную запись
+  // Обработчик клика на конкретную запись
   const handleAppointmentClick = (appointmentId: string) => {
+    console.log('🖱️ Appointment clicked:', appointmentId);
     setIsModalOpen(false);
     navigate(`/appointments/${appointmentId}`);
   };
 
-  // ✅ НОВОЕ: Закрытие модального окна
+  // Закрытие модального окна
   const closeModal = () => {
+    console.log('❌ Modal closed');
     setIsModalOpen(false);
     setSelectedDate(null);
     setSelectedDateAppointments([]);
   };
 
-  // ✅ НОВОЕ: Получение цвета статуса
+  // Получение цвета статуса
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
@@ -217,12 +239,21 @@ export default function Appointments() {
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
+    console.log('📅 Rendering calendar for:', format(currentMonth, 'MMMM yyyy'));
+    console.log('📊 Calendar data:', calendarAppointments);
+
     return (
       <div className="bg-white rounded-lg shadow">
-        {/* ✅ НОВОЕ: Модальное окно с деталями дня */}
+        {/* Модальное окно с деталями дня */}
         {isModalOpen && selectedDate && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={closeModal}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()} // Предотвращаем закрытие при клике внутри модалки
+            >
               {/* Заголовок модального окна */}
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -230,7 +261,7 @@ export default function Appointments() {
                 </h2>
                 <button
                   onClick={closeModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -243,7 +274,7 @@ export default function Appointments() {
                     <div
                       key={appointment.id}
                       onClick={() => handleAppointmentClick(appointment.id)}
-                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all duration-200 group hover:shadow-md"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -321,6 +352,7 @@ export default function Appointments() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                className="p-2"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -328,6 +360,7 @@ export default function Appointments() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentMonth(new Date())}
+                className="px-3"
               >
                 Today
               </Button>
@@ -335,6 +368,7 @@ export default function Appointments() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                className="p-2"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -360,19 +394,34 @@ export default function Appointments() {
             });
 
             const hasAppointments = dayAppointments.length > 0;
+            const dayNumber = format(day, 'd');
+            const isTodayDate = isToday(day);
 
             return (
               <div
                 key={day.toISOString()}
                 onClick={() => handleDayClick(day)}
-                className={`min-h-[120px] border-r border-b border-gray-200 p-2 ${
-                  hasAppointments ? 'cursor-pointer hover:bg-blue-50' : ''
-                } ${isToday(day) ? 'bg-blue-50' : ''}`}
+                className={`
+                  min-h-[120px] border-r border-b border-gray-200 p-2 relative
+                  transition-all duration-200
+                  ${hasAppointments
+                    ? 'cursor-pointer hover:bg-blue-50 hover:shadow-inner'
+                    : 'hover:bg-gray-50'
+                  }
+                  ${isTodayDate ? 'bg-blue-50 ring-2 ring-blue-300 ring-inset' : 'bg-white'}
+                `}
               >
+                {/* Индикатор кликабельности */}
+                {hasAppointments && (
+                  <div className="absolute top-1 right-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+
                 <div className={`text-sm font-medium mb-1 ${
-                  isToday(day) ? 'text-blue-600' : 'text-gray-900'
+                  isTodayDate ? 'text-blue-600 font-bold' : 'text-gray-900'
                 }`}>
-                  {format(day, 'd')}
+                  {dayNumber}
                 </div>
 
                 <div className="space-y-1">
@@ -386,18 +435,23 @@ export default function Appointments() {
                     return (
                       <div
                         key={appointment.id}
-                        className={`text-xs p-1 rounded border ${getStatusColor(appointment.status)} ${
-                          hasAppointments ? 'hover:shadow-sm' : ''
-                        }`}
-                        title={`${displayTime} - ${appointment.title}`}
+                        className={`
+                          text-xs p-1 rounded border text-left
+                          ${getStatusColor(appointment.status)}
+                          ${hasAppointments ? 'hover:shadow-sm transform hover:scale-105' : ''}
+                          transition-all duration-150
+                        `}
+                        title={`${displayTime} - ${appointment.customer_name}: ${appointment.service_name}`}
                       >
-                        {displayTime} - {appointment.customer_name}
+                        <div className="font-medium truncate">
+                          {displayTime} - {appointment.customer_name}
+                        </div>
                       </div>
                     );
                   })}
 
                   {dayAppointments.length > 3 && (
-                    <div className="text-xs text-gray-500 font-medium">
+                    <div className="text-xs text-gray-500 font-medium p-1 bg-gray-100 rounded">
                       +{dayAppointments.length - 3} more
                     </div>
                   )}
@@ -426,16 +480,22 @@ export default function Appointments() {
         <div className="flex items-center space-x-4">
           <div className="flex space-x-2">
             <Button
-              variant={view === 'list' ? 'primary' : 'outline'}
+              variant={view === 'list' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setView('list')}
+              onClick={() => {
+                console.log('🔄 Switching to list view');
+                setView('list');
+              }}
             >
               List View
             </Button>
             <Button
-              variant={view === 'calendar' ? 'primary' : 'outline'}
+              variant={view === 'calendar' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setView('calendar')}
+              onClick={() => {
+                console.log('🔄 Switching to calendar view');
+                setView('calendar');
+              }}
             >
               <Calendar className="h-4 w-4 mr-1" />
               Calendar View
