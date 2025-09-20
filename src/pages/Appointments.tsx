@@ -1,7 +1,7 @@
-// ✅ ИСПРАВЛЕННАЯ ВЕРСИЯ: src/pages/Appointments.tsx
+// ✅ УЛУЧШЕННАЯ ВЕРСИЯ: src/pages/Appointments.tsx с интерактивным календарем
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, Calendar, RefreshCw, Filter, ChevronLeft, ChevronRight, X, Clock, User, Briefcase } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 
 import { Button } from '@/components/ui/Button';
@@ -21,7 +21,7 @@ interface Appointment {
     name: string;
   };
   appointment_date: string;
-  appointment_time: string; // ✅ ИЗМЕНЕНО: Теперь это всегда строка, не Date
+  appointment_time: string;
   status: string;
   estimated_cost?: number;
 }
@@ -29,8 +29,8 @@ interface Appointment {
 interface CalendarAppointment {
   id: string;
   title: string;
-  start: string; // ✅ ISO datetime строка
-  end: string;   // ✅ ISO datetime строка
+  start: string;
+  end: string;
   customer_id: string;
   customer_name: string;
   service_name: string;
@@ -38,6 +38,7 @@ interface CalendarAppointment {
 }
 
 export default function Appointments() {
+  const navigate = useNavigate();
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [calendarAppointments, setCalendarAppointments] = useState<CalendarAppointment[]>([]);
@@ -45,6 +46,11 @@ export default function Appointments() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // ✅ НОВОЕ: Состояния для модального окна
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDateAppointments, setSelectedDateAppointments] = useState<CalendarAppointment[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (view === 'list') {
@@ -72,13 +78,11 @@ export default function Appointments() {
 
       console.log('✅ Записи загружены:', response);
 
-      const appointmentsData = Array.isArray(response) ? response : (response as any)?.data || [];
+      const appointmentsData = Array.isArray(response) ? response : [];
       setAppointments(appointmentsData);
-      console.log(`📊 Установлено ${appointmentsData.length} записей`);
-
-    } catch (error: any) {
-      console.error('❌ Ошибка при загрузке записей:', error);
-      setError(error?.message || 'Не удалось загрузить записи');
+    } catch (error) {
+      console.error('❌ Ошибка загрузки записей:', error);
+      setError('Failed to load appointments. Please try again.');
       setAppointments([]);
     } finally {
       setIsLoading(false);
@@ -91,243 +95,299 @@ export default function Appointments() {
 
     try {
       console.log('📅 Загрузка календарных записей...');
-      console.log('🗓️ Текущий месяц:', currentMonth);
 
       const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth() + 1; // JavaScript months are 0-based
-
-      console.log(`🔍 Запрос календаря: year=${year}, month=${month}`);
+      const month = currentMonth.getMonth() + 1;
 
       const response = await apiService.get<CalendarAppointment[]>('/api/appointments/calendar', {
-        params: { year: year.toString(), month: month.toString() }
+        params: { year, month }
       });
 
       console.log('✅ Календарные записи загружены:', response);
 
-      const calendarData = Array.isArray(response) ? response : (response as any)?.data || [];
+      const calendarData = Array.isArray(response) ? response : [];
       setCalendarAppointments(calendarData);
-      console.log(`📊 Установлено ${calendarData.length} календарных записей`);
-
-    } catch (error: any) {
-      console.error('❌ Ошибка при загрузке календарных записей:', error);
-      setError(error?.message || 'Не удалось загрузить календарь');
+    } catch (error) {
+      console.error('❌ Ошибка загрузки календаря:', error);
+      setError('Failed to load calendar data. Please try again.');
       setCalendarAppointments([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ ИСПРАВЛЕНО: Безопасная обработка времени
-  const formatAppointmentTime = (timeString: string): string => {
-    try {
-      // Если это уже строка времени в формате "HH:MM", возвращаем как есть
-      if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}$/)) {
-        return timeString;
-      }
+  // ✅ НОВОЕ: Обработчик клика на день в календаре
+  const handleDayClick = (date: Date) => {
+    const dayAppointments = calendarAppointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.start);
+      return isSameDay(appointmentDate, date);
+    });
 
-      // Если это ISO время "HH:MM:SS", извлекаем "HH:MM"
-      if (typeof timeString === 'string' && timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
-        return timeString.substring(0, 5); // "09:30:00" -> "09:30"
-      }
-
-      // Fallback
-      console.warn('⚠️ Неожиданный формат времени:', timeString);
-      return timeString || '09:00';
-
-    } catch (error) {
-      console.error('❌ Ошибка форматирования времени:', error);
-      return '09:00';
+    if (dayAppointments.length > 0) {
+      setSelectedDate(date);
+      setSelectedDateAppointments(dayAppointments);
+      setIsModalOpen(true);
     }
   };
 
-  const handlePrevMonth = () => {
-    const prevMonth = new Date(currentMonth);
-    prevMonth.setMonth(prevMonth.getMonth() - 1);
-    setCurrentMonth(prevMonth);
+  // ✅ НОВОЕ: Обработчик клика на конкретную запись
+  const handleAppointmentClick = (appointmentId: string) => {
+    setIsModalOpen(false);
+    navigate(`/appointments/${appointmentId}`);
   };
 
-  const handleNextMonth = () => {
-    const nextMonth = new Date(currentMonth);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    setCurrentMonth(nextMonth);
+  // ✅ НОВОЕ: Закрытие модального окна
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedDate(null);
+    setSelectedDateAppointments([]);
   };
 
-  const handleUpdateStatus = async (appointmentId: string, newStatus: string) => {
-    try {
-      console.log(`🔄 Обновление статуса записи ${appointmentId} на ${newStatus}`);
-
-      await apiService.put(`/api/appointments/${appointmentId}`, {
-        status: newStatus,
-      });
-
-      console.log('✅ Статус обновлен');
-
-      if (view === 'list') {
-        fetchAppointmentsList();
-      } else {
-        fetchCalendarAppointments();
-      }
-    } catch (error: any) {
-      console.error('❌ Ошибка при обновлении статуса:', error);
-      setError(error?.message || 'Не удалось обновить статус');
+  // ✅ НОВОЕ: Получение цвета статуса
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const handleRowClick = (appointment: Appointment) => {
-    console.log('Клик по записи:', appointment);
-  };
-
-  // ✅ ИСПРАВЛЕНО: Кастомные рендереры с правильной обработкой времени
-  const customRenderers = {
-    customer: (value: any, item: Appointment) => (
-      <div className="flex items-center">
-        <div className="ml-4">
-          <div className="text-sm font-medium text-gray-900">{value?.name || 'Unknown'}</div>
-          <div className="text-sm text-gray-500">{value?.phone || 'No phone'}</div>
+  const getColumns = () => [
+    {
+      key: 'customer.name',
+      label: 'Customer',
+      render: (appointment: Appointment) => (
+        <div>
+          <div className="font-medium">{appointment.customer?.name || 'Unknown'}</div>
+          <div className="text-sm text-gray-500">{appointment.customer?.phone || ''}</div>
         </div>
-      </div>
-    ),
-
-    service: (value: any) => (
-      <div className="text-sm text-gray-900">{value?.name || 'Unknown service'}</div>
-    ),
-
-    // ✅ ИСПРАВЛЕНО: Правильная обработка времени
-    appointment_date: (value: string, item: Appointment) => (
-      <div>
-        <div className="text-sm text-gray-900">
-          {value ? formatDate(value) : 'No date'}
-        </div>
-        <div className="text-sm text-gray-500">
-          {formatAppointmentTime(item.appointment_time)}
-        </div>
-      </div>
-    ),
-
-    status: (value: string, item: Appointment) => (
-      <div className="flex items-center space-x-2">
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-          value === 'confirmed' ? 'bg-green-100 text-green-800' :
-          value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-          value === 'cancelled' ? 'bg-red-100 text-red-800' :
-          value === 'completed' ? 'bg-blue-100 text-blue-800' :
-          value === 'new' ? 'bg-purple-100 text-purple-800' :
-          'bg-gray-100 text-gray-800'
+      )
+    },
+    {
+      key: 'service.name',
+      label: 'Service',
+      render: (appointment: Appointment) => appointment.service?.name || 'Unknown Service'
+    },
+    {
+      key: 'appointment_date',
+      label: 'Date',
+      render: (appointment: Appointment) => formatDate(appointment.appointment_date)
+    },
+    {
+      key: 'appointment_time',
+      label: 'Time',
+      render: (appointment: Appointment) => {
+        if (typeof appointment.appointment_time === 'string') {
+          return appointment.appointment_time;
+        }
+        return 'Invalid time';
+      }
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (appointment: Appointment) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+          appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+          'bg-blue-100 text-blue-800'
         }`}>
-          {value}
+          {appointment.status}
         </span>
-        <div className="relative">
-          <select
-            value={value}
-            onChange={(e) => {
-              e.stopPropagation();
-              handleUpdateStatus(item.id, e.target.value);
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className="block w-full bg-transparent border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm rounded-md"
-            disabled={isLoading}
-          >
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-    ),
-
-    actions: (value: any, item: Appointment) => (
-      <div className="text-right text-sm font-medium">
-        <Link
-          to={`/appointments/${item.id}`}
-          className="text-indigo-600 hover:text-indigo-900"
-          onClick={(e) => e.stopPropagation()}
-        >
-          View
-        </Link>
-      </div>
-    )
-  };
+      )
+    },
+    {
+      key: 'estimated_cost',
+      label: 'Cost',
+      render: (appointment: Appointment) =>
+        appointment.estimated_cost ? `$${appointment.estimated_cost.toFixed(2)}` : '-'
+    }
+  ];
 
   const renderCalendarView = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    // ✅ ИСПРАВЛЕНО: Безопасная работа с календарными событиями
-    const getAppointmentsForDay = (day: Date) => {
-      return calendarAppointments.filter(appointment => {
-        try {
-          // Извлекаем дату из ISO строки "2025-09-21T09:00:00"
-          const appointmentDate = new Date(appointment.start.split('T')[0]);
-          return isSameDay(appointmentDate, day);
-        } catch (error) {
-          console.warn('⚠️ Ошибка парсинга даты события:', appointment.start, error);
-          return false;
-        }
-      });
-    };
-
     return (
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {format(currentMonth, 'MMMM yyyy')}
-          </h2>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={handlePrevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+      <div className="bg-white rounded-lg shadow">
+        {/* ✅ НОВОЕ: Модальное окно с деталями дня */}
+        {isModalOpen && selectedDate && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+              {/* Заголовок модального окна */}
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  📅 {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Список записей */}
+              <div className="px-6 py-4 max-h-96 overflow-y-auto">
+                <div className="space-y-3">
+                  {selectedDateAppointments.map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      onClick={() => handleAppointmentClick(appointment.id)}
+                      className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          {/* Время */}
+                          <div className="flex items-center text-sm text-gray-600 mb-2">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {new Date(appointment.start).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false
+                            })}
+                            {appointment.end && (
+                              <>
+                                {' - '}
+                                {new Date(appointment.end).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: false
+                                })}
+                              </>
+                            )}
+                          </div>
+
+                          {/* Клиент */}
+                          <div className="flex items-center mb-2">
+                            <User className="h-4 w-4 mr-1 text-gray-400" />
+                            <span className="font-medium text-gray-900">
+                              {appointment.customer_name}
+                            </span>
+                          </div>
+
+                          {/* Услуга */}
+                          <div className="flex items-center mb-3">
+                            <Briefcase className="h-4 w-4 mr-1 text-gray-400" />
+                            <span className="text-gray-700">
+                              {appointment.service_name}
+                            </span>
+                          </div>
+
+                          {/* Статус */}
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
+                            {appointment.status}
+                          </span>
+                        </div>
+
+                        {/* Стрелка при наведении */}
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Футер модального окна */}
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>{selectedDateAppointments.length} appointment(s) on this day</span>
+                  <span className="text-xs">Click on any appointment to view details</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Заголовок календаря */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {format(currentMonth, 'MMMM yyyy')}
+            </h2>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentMonth(new Date())}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-gray-200">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="bg-gray-50 py-2 px-3 text-center text-sm font-medium text-gray-700">
+        {/* Дни недели */}
+        <div className="grid grid-cols-7 border-b border-gray-200">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="px-3 py-2 text-center text-sm font-medium text-gray-700 bg-gray-50">
               {day}
             </div>
           ))}
+        </div>
 
-          {days.map((day, dayIdx) => {
-            const dayAppointments = getAppointmentsForDay(day);
+        {/* Календарная сетка */}
+        <div className="grid grid-cols-7">
+          {days.map((day) => {
+            const dayAppointments = calendarAppointments.filter(appointment => {
+              const appointmentDate = new Date(appointment.start);
+              return isSameDay(appointmentDate, day);
+            });
+
+            const hasAppointments = dayAppointments.length > 0;
 
             return (
               <div
-                key={dayIdx}
-                className={`min-h-[100px] bg-white p-2 ${
-                  isToday(day) ? 'bg-blue-50' : ''
-                }`}
+                key={day.toISOString()}
+                onClick={() => handleDayClick(day)}
+                className={`min-h-[120px] border-r border-b border-gray-200 p-2 ${
+                  hasAppointments ? 'cursor-pointer hover:bg-blue-50' : ''
+                } ${isToday(day) ? 'bg-blue-50' : ''}`}
               >
-                <div className={`text-sm font-medium ${
+                <div className={`text-sm font-medium mb-1 ${
                   isToday(day) ? 'text-blue-600' : 'text-gray-900'
                 }`}>
                   {format(day, 'd')}
                 </div>
 
-                <div className="mt-1 space-y-1">
+                <div className="space-y-1">
                   {dayAppointments.slice(0, 3).map((appointment) => {
-                    // ✅ ИСПРАВЛЕНО: Безопасное извлечение времени из ISO строки
-                    let displayTime = '09:00';
-                    try {
-                      const timeMatch = appointment.start.match(/T(\d{2}:\d{2})/);
-                      if (timeMatch) {
-                        displayTime = timeMatch[1];
-                      }
-                    } catch (error) {
-                      console.warn('⚠️ Ошибка извлечения времени:', appointment.start, error);
-                    }
+                    const displayTime = new Date(appointment.start).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false
+                    });
 
                     return (
                       <div
                         key={appointment.id}
-                        className={`text-xs px-1 py-0.5 rounded truncate ${
-                          appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                          appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-blue-100 text-blue-800'
+                        className={`text-xs p-1 rounded border ${getStatusColor(appointment.status)} ${
+                          hasAppointments ? 'hover:shadow-sm' : ''
                         }`}
                         title={`${displayTime} - ${appointment.title}`}
                       >
@@ -337,7 +397,7 @@ export default function Appointments() {
                   })}
 
                   {dayAppointments.length > 3 && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 font-medium">
                       +{dayAppointments.length - 3} more
                     </div>
                   )}
@@ -350,7 +410,6 @@ export default function Appointments() {
     );
   };
 
-  // Остальная часть компонента остается без изменений
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -409,11 +468,10 @@ export default function Appointments() {
       {view === 'list' ? (
         <div className="space-y-4">
           <div className="flex items-center space-x-4">
-            <Filter className="h-4 w-4 text-gray-400" />
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="block w-48 border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
             >
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
@@ -421,7 +479,11 @@ export default function Appointments() {
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
-            <Button variant="outline" size="sm" onClick={fetchAppointmentsList}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAppointmentsList}
+            >
               <RefreshCw className="h-4 w-4 mr-1" />
               Refresh
             </Button>
@@ -429,17 +491,9 @@ export default function Appointments() {
 
           <DynamicTable
             data={appointments}
-            columns={[
-              { key: 'customer', label: 'Customer' },
-              { key: 'service', label: 'Service' },
-              { key: 'appointment_date', label: 'Date & Time' },
-              { key: 'status', label: 'Status' },
-              { key: 'actions', label: 'Actions' }
-            ]}
-            customRenderers={customRenderers}
-            onRowClick={handleRowClick}
+            columns={getColumns()}
+            loading={isLoading}
             emptyMessage="No appointments found"
-            isLoading={isLoading}
           />
         </div>
       ) : (
