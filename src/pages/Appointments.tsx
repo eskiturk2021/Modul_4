@@ -39,7 +39,7 @@ interface CalendarAppointment {
 
 export default function Appointments() {
   const navigate = useNavigate();
-  const [view, setView] = useState<'list' | 'calendar'>('calendar'); // Начинаем с календаря
+  const [view, setView] = useState<'list' | 'calendar'>('list'); // Начинаем со списка
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [calendarAppointments, setCalendarAppointments] = useState<CalendarAppointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,7 +154,8 @@ export default function Appointments() {
   const handleAppointmentClick = (appointmentId: string) => {
     console.log('🖱️ Appointment clicked:', appointmentId);
     setIsModalOpen(false);
-    navigate(`/appointments/${appointmentId}`);
+    // Переходим на страницу appointments в режиме списка вместо детальной страницы
+    setView('list');
   };
 
   // Закрытие модального окна
@@ -183,17 +184,21 @@ export default function Appointments() {
 
   const getColumns = () => [
     {
-      key: 'customer.name',
+      key: 'customer',
       label: 'Customer',
       render: (appointment: Appointment) => (
         <div>
-          <div className="font-medium">{appointment.customer?.name || 'Unknown'}</div>
-          <div className="text-sm text-gray-500">{appointment.customer?.phone || ''}</div>
+          <div className="font-medium">
+            {appointment.customer?.name || 'Unknown'}
+          </div>
+          <div className="text-sm text-gray-500">
+            {appointment.customer?.phone || ''}
+          </div>
         </div>
       )
     },
     {
-      key: 'service.name',
+      key: 'service',
       label: 'Service',
       render: (appointment: Appointment) => appointment.service?.name || 'Unknown Service'
     },
@@ -206,10 +211,28 @@ export default function Appointments() {
       key: 'appointment_time',
       label: 'Time',
       render: (appointment: Appointment) => {
-        if (typeof appointment.appointment_time === 'string') {
-          return appointment.appointment_time;
+        // Исправленное форматирование времени
+        const timeString = appointment.appointment_time;
+        if (typeof timeString === 'string') {
+          // Если это строка времени в формате "HH:MM" или "HH:MM:SS"
+          if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+            return timeString.substring(0, 5); // Возвращаем только "HH:MM"
+          }
+          // Если это ISO строка с датой и временем
+          try {
+            const date = new Date(timeString);
+            if (!isNaN(date.getTime())) {
+              return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              });
+            }
+          } catch (error) {
+            console.warn('Error parsing time:', timeString, error);
+          }
         }
-        return 'Invalid time';
+        return timeString || 'N/A';
       }
     },
     {
@@ -230,7 +253,7 @@ export default function Appointments() {
       key: 'estimated_cost',
       label: 'Cost',
       render: (appointment: Appointment) =>
-        appointment.estimated_cost ? `$${appointment.estimated_cost.toFixed(2)}` : '-'
+        appointment.estimated_cost ? `${appointment.estimated_cost.toFixed(2)}` : '—'
     }
   ];
 
@@ -551,9 +574,61 @@ export default function Appointments() {
 
           <DynamicTable
             data={appointments}
-            columns={getColumns()}
-            loading={isLoading}
-            emptyMessage="No appointments found"
+            isLoading={isLoading}
+            onRowClick={(appointment) => {
+              // Можно добавить переход к деталям записи
+              console.log('Row clicked:', appointment);
+            }}
+            excludeColumns={['id']} // Исключаем ID из отображения
+            customRenderers={{
+              customer: (value: any, item: Appointment) => (
+                <div>
+                  <div className="font-medium">
+                    {item.customer?.name || 'Unknown'}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {item.customer?.phone || ''}
+                  </div>
+                </div>
+              ),
+              service: (value: any, item: Appointment) =>
+                item.service?.name || 'Unknown Service',
+              appointment_date: (value: string) => formatDate(value),
+              appointment_time: (value: string) => {
+                if (typeof value === 'string') {
+                  // Если это строка времени в формате "HH:MM" или "HH:MM:SS"
+                  if (value.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
+                    return value.substring(0, 5); // Возвращаем только "HH:MM"
+                  }
+                  // Если это ISO строка с датой и временем
+                  try {
+                    const date = new Date(value);
+                    if (!isNaN(date.getTime())) {
+                      return date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      });
+                    }
+                  } catch (error) {
+                    console.warn('Error parsing time:', value, error);
+                  }
+                }
+                return value || 'N/A';
+              },
+              status: (value: string) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  value === 'confirmed' ? 'bg-green-100 text-green-800' :
+                  value === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  value === 'cancelled' ? 'bg-red-100 text-red-800' :
+                  'bg-blue-100 text-blue-800'
+                }`}>
+                  {value}
+                </span>
+              ),
+              estimated_cost: (value: number) =>
+                value ? `${value.toFixed(2)}` : '—'
+            }}
           />
         </div>
       ) : (
